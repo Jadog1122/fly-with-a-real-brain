@@ -1,0 +1,22 @@
+This project is a derivative work of the whole-brain Drosophila leaky-integrate-and-fire
+model published with the FlyWire connectome:
+
+  Shiu, P.K., Sterne, G.R., Spiller, N. et al.
+  "A leaky integrate-and-fire computational model based on the connectome of the entire
+  adult Drosophila brain reveals insights into sensorimotor processing."
+  Upstream code: GPL-2.0-or-later.
+
+The upstream model and its connectome tables are GPL-2.0-or-later, so this repository is
+distributed under the same licence (see LICENSE). The upstream clone it was derived from
+is not vendored here; see README.md for how to fetch it.
+
+Components under other terms, retained here with attribution:
+
+  - Neuron annotations and coordinates: CC-BY-4.0, Schlegel et al. 2024,
+    github.com/flyconnectome/flywire_annotations
+  - 3-D props: Stylized Nature MegaKit by Quaternius, CC0
+  - Interface components: @rpgjs/ui-css, MIT
+
+FlyWire connectome data carries its own terms, which are not the same as this repository's
+licence. Anything derived from it here is for personal, non-commercial research use.
+Check https://flywire.ai before redeploying or building on it.

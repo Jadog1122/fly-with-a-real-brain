@@ -14,6 +14,11 @@ import type { Action } from './motor'
 import type { Stim } from './sensors'
 import type { World } from './world'
 
+// The kit's 22 models share 5 textures, and GLTFLoader fetches them all in parallel -
+// so the same PNG was requested up to 6 times before the HTTP cache filled, 3.1 MB of
+// a 5.3 MB first load. three's loader cache is off by default; this dedupes them.
+THREE.Cache.enabled = true
+
 const M = 'models/nature/'
 /** Quaternius units -> arena units.  A fly is ~50 arena units long. */
 const S = 62

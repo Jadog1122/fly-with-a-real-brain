@@ -41,6 +41,18 @@ page unified onto the same warm palette, label clipping and sub-11px type fixed,
 fog range bound to camera mode, crumb-particle leak capped), plus a litter rewrite
 in `scene3d.ts`. Next: brain-chunk code splitting in `vite.config.ts`/`engine.ts`.
 
+### 2026-09-12 — world session — litter, bundle split
+`716c09c` ground litter: all five pebble and three petal variants, dropped in seven
+drifts rather than uniformly, each tilted and bedded into the dirt (it was reading as
+even noise, and flat pebbles at a grazing angle looked like open books).
+`<next>` build: `vite.config.ts` still told the dep optimizer to pre-bundle
+`crystal-menu-ui`, which was uninstalled in the UI swap — removed. Added `manualChunks`
+so `three` and `react` are named vendor chunks. **The "582 kB brain chunk" was a
+misreading on my part**: that chunk was three.js keyed to `brain.ts`. The whole-brain
+viewer's own code is 10.5 kB, so lazy-loading it would save nothing. Net real win: the
+Explorer no longer ships React at all (221 kB). Both built pages verified in a browser,
+zero console errors.
+
 ### <date> — fly-model session — <result>
 <!-- Fill this in when you finish. Required:
      - model source URL, exact licence, and where you recorded attribution

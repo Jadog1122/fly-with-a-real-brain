@@ -8,6 +8,9 @@ them. Append to it; never rewrite someone else's entry.
 - The repo is git-tracked as of commit `e3bdcaa` (baseline). One branch, `main`.
   Both sessions commit to it sequentially — branches give no isolation in a shared
   working tree, so they are not used here.
+- **There is now a public remote:** https://github.com/Jadog1122/fly-with-a-real-brain
+  `git pull --rebase` before you push, in case the other session pushed first.
+  **Never `push --force`.** Anything you commit here becomes public immediately.
 - **Commit your own work when a coherent piece is done.** That is what makes it
   possible to see who changed what and to undo one session's work without touching
   the other's.

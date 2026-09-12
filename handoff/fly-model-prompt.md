@@ -108,3 +108,20 @@ editing it.**
    had to keep procedural.
 
 State plainly what you changed and anything you could not do — do not overstate.
+
+## How to hand your work back
+
+The tree is git-tracked (baseline commit `e3bdcaa`, single branch `main`).
+
+1. **Read `handoff/HANDOFF.md` first.** It carries the ground rules, the file-ownership
+   table, and the other session's log entries. It is the authoritative version of the
+   coordination notes above — if the two disagree, follow `HANDOFF.md`.
+2. Commit your own work when it is done, subject prefixed `fly-model:`. Stage explicit
+   paths, never `git add -A` — the other session has edits in flight in the same tree.
+3. Never `checkout`, `reset`, `revert`, `rebase`, `stash`, or `--amend` anything you did
+   not commit yourself.
+4. Append your entry to the "Entries" section of `handoff/HANDOFF.md`: model source URL,
+   exact licence and where you recorded attribution, total bytes added under
+   `web/public/models/`, which animation channels the model's own rig drives versus
+   which you kept procedural, the files you changed, your commit hashes, and anything
+   you could not do.

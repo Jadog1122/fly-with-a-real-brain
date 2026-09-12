@@ -1,0 +1,13 @@
+# regenerable: `bake/00_fetch_annotations.py` re-downloads, the rest re-derives
+/data/
+# the vendored GPL upstream clone carries its own .git
+/upstream/
+# toolchains
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+# build output
+dist/
+web/dist/
+.DS_Store

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Poke a neuron — Drosophila connectome</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🪰</text></svg>" />
+</head>
+<body>
+  <div id="app">
+    <aside id="side">
+      <header id="brand">
+        <h1>Poke&nbsp;a&nbsp;neuron</h1>
+        <p class="sub">Whole-brain <i>Drosophila</i> connectome, spiking</p>
+      </header>
+
+      <section id="now" class="card">
+        <div class="eyebrow">Now playing</div>
+        <h2 id="exp-label">—</h2>
+        <p id="exp-note" class="note"></p>
+        <div id="exp-stats" class="stats"></div>
+        <div id="highlights"></div>
+      </section>
+
+      <section class="card">
+        <div class="eyebrow">Selected neuron</div>
+        <div id="sel-body" class="sel-empty">Click any point in the brain.</div>
+      </section>
+
+      <section class="card grow">
+        <div class="eyebrow">Experiments <span id="exp-count" class="dim"></span></div>
+        <input id="filter" type="search" placeholder="filter…" autocomplete="off" />
+        <div id="exp-list"></div>
+      </section>
+
+      <section class="card">
+        <div class="eyebrow">Regions</div>
+        <div id="legend"></div>
+        <p id="provenance" class="prov"></p>
+      </section>
+    </aside>
+
+    <main id="stage">
+      <div id="canvas-host"></div>
+      <div id="tooltip" hidden></div>
+      <div id="story" hidden></div>
+      <div id="loading"><div class="spinner"></div><span id="loading-msg">loading connectome…</span></div>
+      <a id="to-pet" class="ghost" href="/pet.html" title="A fly whose brain runs live in your browser">🪰 Meet the fly →</a>
+      <button id="guided" class="ghost" title="Play the sugar → proboscis story">▶ Guided tour</button>
+      <div id="hud"></div>
+    </main>
+
+    <footer id="transport">
+      <div class="row">
+        <button id="play" class="primary" title="Space">▶</button>
+        <button id="reset" title="R">⟲</button>
+        <div id="scrub"><div id="scrub-fill"></div><div id="scrub-head"></div></div>
+        <span id="clock" class="mono">0.0 / 0.0 ms</span>
+        <label class="speed">speed
+          <select id="speed">
+            <option value="25">40× slow</option>
+            <option value="50" selected>20× slow</option>
+            <option value="100">10× slow</option>
+            <option value="250">4× slow</option>
+          </select>
+        </label>
+      </div>
+      <canvas id="raster"></canvas>
+      <div class="raster-axis"><span>0 ms</span><span id="raster-mid"></span><span id="raster-end"></span></div>
+    </footer>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

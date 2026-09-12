@@ -1,0 +1,106 @@
+/* @rpgjs/ui-css is entirely token-driven, so the whole library is rethemed here by
+   overriding colour and size variables only - no component CSS is rewritten.
+   Default is dark slate + cyan; the world is a sunlit cartoon meadow, so this is
+   warm bark, leaf and honey instead. */
+
+:root {
+  /* scene */
+  --rpg-ui-bg: #241a10;
+  --rpg-ui-body-bg: #17100a;
+  --rpg-ui-body-background: none;
+
+  /* surfaces: bark and shade, not slate */
+  --rpg-ui-surface: rgba(46, 33, 20, .88);
+  --rpg-ui-surface-light: rgba(70, 51, 31, .84);
+  --rpg-ui-surface-overlay: rgba(38, 27, 16, .74);
+  --rpg-ui-surface-overlay-strong: rgba(30, 21, 12, .93);
+  --rpg-ui-border: rgba(226, 186, 118, .38);
+  --rpg-ui-border-light: rgba(255, 236, 196, .28);
+  --rpg-ui-border-dark: rgba(24, 16, 8, .8);
+
+  /* type */
+  --rpg-ui-text: #fdf3e0;
+  --rpg-ui-text-muted: rgba(238, 219, 184, .72);
+  --rpg-ui-text-shadow: 0 2px 4px rgba(28, 18, 8, .55);
+
+  /* honey accent, leaf-green support */
+  --rpg-ui-accent: #f0b23c;
+  --rpg-ui-accent-hover: #ffd27a;
+  --rpg-ui-accent-active: #d3901f;
+  --rpg-ui-success: #79bb43;
+  --rpg-ui-warning: #f0a92c;
+  --rpg-ui-danger: #e2563c;
+  --rpg-ui-info: #7fae4e;
+  --rpg-ui-mana: #79bb43;
+  --rpg-ui-xp: #f0b23c;
+
+  --rpg-ui-gradient-surface: linear-gradient(180deg, rgba(64, 46, 28, .92) 0%, rgba(36, 26, 16, .95) 100%);
+  --rpg-ui-gradient-accent: linear-gradient(180deg, #f6c25a 0%, #c8891c 100%);
+  --rpg-ui-gradient-bar: linear-gradient(90deg, #f6c25a 0%, #c8891c 100%);
+  --rpg-ui-health-gradient: linear-gradient(90deg, #f7c765 0%, #d98c22 100%);   /* fed */
+  --rpg-ui-mana-gradient: linear-gradient(90deg, #9ad45f 0%, #4f8f2c 100%);     /* calm */
+  --rpg-ui-xp-gradient: linear-gradient(90deg, #ffd97a 0%, #e0a52f 100%);
+  --rpg-ui-fab-gradient: linear-gradient(135deg, #8fc45a 0%, #3f7a26 100%);
+
+  --rpg-ui-shadow: 0 8px 24px rgba(20, 12, 4, .42);
+  --rpg-ui-shadow-sm: 0 4px 12px rgba(20, 12, 4, .3);
+  --rpg-ui-shadow-md: 0 12px 30px rgba(20, 12, 4, .42);
+  --rpg-ui-shadow-lg: 0 20px 48px rgba(20, 12, 4, .5);
+  --rpg-ui-shadow-glow: 0 0 18px rgba(240, 178, 60, .55);
+
+  --rpg-ui-font: "Trebuchet MS", "Avenir Next", Optima, system-ui, sans-serif;
+  --rpg-ui-radius-lg: 14px;
+  --rpg-ui-radius-md: 10px;
+
+  --rpg-ui-hud-background: linear-gradient(180deg, rgba(58, 41, 24, .84), rgba(32, 22, 12, .88));
+  --rpg-ui-hud-border: rgba(226, 186, 118, .42);
+  --rpg-ui-avatar-background: radial-gradient(circle at 35% 30%, #6a4d2c, #2c1e10);
+  --rpg-ui-avatar-border: rgba(240, 178, 60, .75);
+}
+
+/* --- second pass -------------------------------------------------------
+   Audit of the computed tokens found ~18 library defaults still painting
+   the dark-slate/cyan original through the meadow: cool blue-blacks
+   (rgb 2,6,23), a second gold (#facc15) fighting the honey, neutral-grey
+   dock slots, and a red glow under the green brain button.  Retinted here
+   so every surface on screen comes from one warm ramp. */
+:root {
+  /* the FAB is leaf-green; its shadow was still the library's red */
+  --rpg-ui-fab-shadow: 0 10px 26px rgba(38, 62, 18, .5);
+  --rpg-ui-fab-border: rgba(255, 236, 196, .34);
+
+  /* status bars: bark trough, cream label, warm glow */
+  --rpg-ui-status-bar-background: rgba(28, 19, 10, .62);
+  --rpg-ui-status-bar-label-color: #fdf3e0;
+  --rpg-ui-status-bar-shadow: 0 0 10px rgba(255, 222, 160, .3);
+  --rpg-ui-status-bar-height: 15px;
+  --rpg-ui-status-bars-width: 208px;
+
+  /* avatar badge: honey, not tailwind yellow on slate */
+  --rpg-ui-avatar-level-bg: rgba(28, 19, 10, .92);
+  --rpg-ui-avatar-level-border: rgba(240, 178, 60, .85);
+  --rpg-ui-avatar-level-color: #f6c25a;
+  --rpg-ui-avatar-shadow: 0 4px 14px rgba(20, 12, 4, .5);
+
+  /* dock slots: carved bark, not neutral white alpha */
+  --rpg-ui-dock-slot-bg: rgba(72, 52, 30, .5);
+  --rpg-ui-dock-slot-bg-hover: rgba(104, 76, 44, .68);
+  --rpg-ui-dock-slot-bg-active: rgba(240, 178, 60, .22);
+  --rpg-ui-dock-slot-border: rgba(226, 186, 118, .26);
+  --rpg-ui-dock-slot-border-hover: rgba(255, 216, 150, .6);
+  --rpg-ui-dock-slot-shadow-hover: 0 10px 20px rgba(20, 12, 4, .34);
+
+  --rpg-ui-shadow-inset: inset 0 1px 0 rgba(255, 236, 196, .1);
+
+  /* not on screen today, but they leak the old palette the moment they are */
+  --rpg-ui-minimap-background: rgba(30, 21, 12, .88);
+  --rpg-ui-minimap-border: rgba(226, 186, 118, .3);
+  --rpg-ui-minimap-shadow: 0 8px 32px rgba(20, 12, 4, .45);
+  --rpg-ui-shop-card-background: rgba(72, 52, 30, .5);
+  --rpg-ui-shop-card-background-hover: rgba(104, 76, 44, .68);
+  --rpg-ui-shop-card-background-active: rgba(240, 178, 60, .22);
+  --rpg-ui-shop-card-border: rgba(226, 186, 118, .26);
+  --rpg-ui-shop-card-border-active: #f0b23c;
+  --rpg-ui-shop-muted-border: rgba(226, 186, 118, .26);
+  --rpg-ui-shop-gold-color: #f6c25a;
+}

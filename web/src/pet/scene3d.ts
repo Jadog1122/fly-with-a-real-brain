@@ -271,14 +271,13 @@ export class Scene3D {
       ['Pebble_Round_2', .20, 9],  ['Pebble_Round_3', .19, 9],
       ['Pebble_Square_2', .17, 8], ['Petal_1', .50, 7],
       ['Petal_3', .45, 6],         ['Petal_2', .48, 6],
-      ['Clover_1', .55, 5],        ['Flower_4_Single', .50, 4],
     ]
     const drifts: [number, number][] = Array.from({ length: 7 },
       () => [90 + r() * (w - 180), 90 + r() * (h - 180)])
     for (const [file, mul, count] of LITTER) {
       const proto = await this.load(file).catch(() => null)
       if (!proto) continue
-      const petal = file.startsWith('Petal') || file.startsWith('Flower')
+      const petal = file.startsWith('Petal')
       for (let i = 0; i < count; i++) {
         const o = proto.clone(true)
         let x: number, z: number

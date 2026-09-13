@@ -23,6 +23,15 @@ them. Append to it; never rewrite someone else's entry.
 - `git status` before you start and before you commit, so you never stage someone
   else's in-flight edits. Stage explicit paths (`git add web/src/pet/fly3d.ts`),
   not `git add -A`.
+- **Staging explicit paths is not enough.** `git commit` commits the whole index,
+  including anything the other session has already staged. This is exactly how
+  `1381686` ended up a joint commit. Always pass the pathspec to commit as well:
+
+  ```
+  git commit -F msg.txt -- web/src/pet/fly3d.ts web/public/models/
+  ```
+
+  and check `git show --stat HEAD` afterwards to confirm only your files went in.
 
 ## File ownership
 

@@ -33,6 +33,7 @@ export default function App() {
   const [confirmReset, setConfirmReset] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [paused, setPaused] = useState(false)
+  const [autoNote, setAutoNote] = useState<string | null>(null)
   const [settings, setSettings] = useState<Settings>({ ...DEFAULTS, picked: 'sugar' })
   const [boot, setBoot] = useState<BootState>(() => {
     const missing = missingFeatures()
@@ -91,6 +92,17 @@ export default function App() {
   }, [])
 
   useEffect(() => { engineRef.current?.setOverview(overview) }, [overview])
+
+  // The renderer drops a tier on its own if it cannot hold the frame rate. Say so
+  // rather than silently changing what the user chose.
+  useEffect(() => {
+    const q = snap?.autoQuality
+    if (!q) return
+    setSettings(s => ({ ...s, quality: q }))
+    setAutoNote(`Graphics turned down to ${q} to keep the frame rate up. You can change it in settings.`)
+    const t = setTimeout(() => setAutoNote(null), 9000)
+    return () => clearTimeout(t)
+  }, [snap?.autoQuality])
 
   const engine = engineRef.current
   const stimuli: StimKind[] = engine?.stimuli ?? []
@@ -243,6 +255,13 @@ export default function App() {
           engine?.resetPet(); engine?.saveNow(); setConfirmReset(false); setShowSettings(false)
         }}
       />
+
+      {autoNote && (
+        <div className="pet-toast rpg-ui-glass-panel" role="status">
+          <span>{autoNote}</span>
+          <button className="rpg-ui-btn" onClick={() => setAutoNote(null)}>OK</button>
+        </div>
+      )}
 
       {paused && (
         <div className="pet-paused" role="status">

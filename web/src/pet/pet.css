@@ -198,3 +198,11 @@ html, body { background: var(--rpg-ui-body-bg, #17100a); }
 }
 .pet-paused-chip b { font-size: 14px; letter-spacing: .1em; text-transform: uppercase; }
 .pet-paused-chip span { font-size: 11px; opacity: .6; }
+
+/* One-off notices, e.g. the renderer telling you it turned the graphics down. */
+.pet-toast {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: 104px; z-index: 45;
+  display: flex; align-items: center; gap: 12px; padding: 9px 13px;
+  max-width: 460px; font-size: 12px; line-height: 1.45;
+}
+.pet-toast .rpg-ui-btn { padding: 3px 10px; font-size: 11px; flex: none; }

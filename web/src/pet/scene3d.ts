@@ -97,9 +97,31 @@ export class Scene3D {
   overview = false
   private loomShadows = new Map<number, THREE.Mesh>()
   private camTarget = new THREE.Vector3()
-  private particles: { mesh: THREE.Mesh; vx: number; vy: number; vz: number; life: number }[] = []
+  private particles: {
+    mesh: THREE.Mesh; vx: number; vy: number; vz: number
+    life: number; decay: number; grav: number; drag: number
+    spin: number; grow: number; fade: boolean
+  }[] = []
   private particleGeo = new THREE.TetrahedronGeometry(3.2)
+  private puffGeo = new THREE.SphereGeometry(1, 7, 5)
   private crumbMats = new Map<number, THREE.MeshStandardMaterial>()
+  private puffMat = new THREE.MeshStandardMaterial({
+    color: 0xbda780, roughness: 1, transparent: true, opacity: .5, depthWrite: false,
+  })
+  private sparkMat = new THREE.MeshStandardMaterial({
+    color: 0xffe6a8, roughness: .6, emissive: 0x6a4a12, transparent: true, opacity: .9,
+    depthWrite: false,
+  })
+  private footCooldown = 0
+  private wasAirborne = 0
+
+  // adaptive quality
+  private quality: Quality = 'high'
+  private fpsTime = 0
+  private fpsFrames = 0
+  private lastDegrade = 0
+  /** Called when the renderer decides it has to drop a tier to keep up. */
+  onDegrade: ((q: Quality) => void) | null = null
   private airborne = 0
   ready = false
 
@@ -510,16 +532,80 @@ export class Scene3D {
       m.position.set(x, 14, z)
       this.scene.add(m)
       this.particles.push({
-        mesh: m, life: 1,
+        mesh: m, life: 1, decay: 1.2, grav: 420, drag: 0, spin: 1, grow: 0, fade: false,
         vx: (Math.random() - .5) * 150, vy: 90 + Math.random() * 120, vz: (Math.random() - .5) * 150,
       })
     }
+    this.trimParticles()
+  }
+
+  private trimParticles() {
     while (this.particles.length > this.particleCap) {
       this.scene.remove(this.particles.shift()!.mesh)
     }
   }
 
+  /**
+   * Soft ground dust: kicked up by footfalls, thrown out on landing, and stirred while
+   * grooming.  Slow, draggy and fading, so it reads as air rather than as debris - the
+   * crumb tetrahedra are the only thing that should look solid.
+   */
+  private spawnPuff(x: number, z: number, n: number, speed: number, up: number, size: number) {
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(this.puffGeo, this.puffMat)
+      m.position.set(x + (Math.random() - .5) * 8, 2 + Math.random() * 4, z + (Math.random() - .5) * 8)
+      m.scale.setScalar(size * (.6 + Math.random() * .8))
+      this.scene.add(m)
+      this.particles.push({
+        mesh: m, life: 1, decay: 1.6, grav: 30, drag: 2.4, spin: .2, grow: 1.9, fade: true,
+        vx: (Math.random() - .5) * speed, vy: up * (.5 + Math.random()), vz: (Math.random() - .5) * speed,
+      })
+    }
+    this.trimParticles()
+  }
+
+  /** A bright scatter on takeoff, so an escape has a visible moment of impact. */
+  private spawnSparks(x: number, z: number) {
+    for (let i = 0; i < 10; i++) {
+      const m = new THREE.Mesh(this.particleGeo, this.sparkMat)
+      m.position.set(x, 8, z)
+      m.scale.setScalar(.45 + Math.random() * .5)
+      this.scene.add(m)
+      this.particles.push({
+        mesh: m, life: 1, decay: 2.2, grav: 300, drag: .8, spin: 9, grow: 0, fade: true,
+        vx: (Math.random() - .5) * 320, vy: 120 + Math.random() * 180, vz: (Math.random() - .5) * 320,
+      })
+    }
+    this.trimParticles()
+  }
+
   kick(amount: number) { this.shake = Math.min(1, this.shake + amount) }
+
+  /**
+   * Drop a quality tier if the frame rate will not hold.  Only ever downward, and at
+   * most once every ten seconds, because stepping back up on a brief recovery makes
+   * the picture flicker between settings.
+   *
+   * Frames while the page is hidden or mid-stall are thrown away rather than counted:
+   * requestAnimationFrame is throttled or stopped there, and counting it would degrade
+   * a machine that is coping perfectly well.
+   */
+  private measureFps(dt: number) {
+    if (!this.ready || this.quality === 'low') return
+    if (dt > 0.2 || document.visibilityState !== 'visible') return
+    this.fpsTime += dt
+    this.fpsFrames++
+    if (this.fpsTime < 3) return
+
+    const fps = this.fpsFrames / this.fpsTime
+    this.fpsTime = 0
+    this.fpsFrames = 0
+    const now = performance.now()
+    if (fps >= 24 || now - this.lastDegrade < 10_000) return
+
+    this.lastDegrade = now
+    this.onDegrade?.(this.quality === 'high' ? 'medium' : 'low')
+  }
 
   /** Pull back to see the whole arena, or drop back in behind the fly. */
   private particleCap = 120
@@ -584,6 +670,9 @@ export class Scene3D {
   }
 
   setQuality(q: Quality) {
+    this.quality = q
+    this.fpsTime = 0
+    this.fpsFrames = 0
     const dpr = devicePixelRatio || 1
     if (q === 'low') {
       this.renderer.setPixelRatio(1)
@@ -628,7 +717,34 @@ export class Scene3D {
     void this.syncStimuli(stims)
     const f = this.world.fly
 
+    this.measureFps(dt)
     this.airborne += ((action.escape ? 1 : 0) - this.airborne) * Math.min(1, dt * 7)
+
+    // Ground contact, as dust.  Everything here is driven by decoded behaviour, so the
+    // fly kicks up dirt for the same reason it walks.
+    if (this.particleCap > 40) {                 // low quality skips this entirely
+      const A = this.airborne, W = this.wasAirborne
+      if (A > .35 && W <= .35) {                 // takeoff
+        this.spawnSparks(f.x, f.y)
+        this.spawnPuff(f.x, f.y, 7, 150, 70, 3.4)
+      } else if (A < .25 && W >= .25) {          // landing
+        this.spawnPuff(f.x, f.y, 6, 110, 45, 3.0)
+      }
+      this.footCooldown -= dt
+      if (this.footCooldown <= 0) {
+        const moving = Math.abs(f.speed) > 25 && A < .3
+        if (moving) {
+          this.spawnPuff(f.x, f.y, 1, 26, 16, 1.5)
+          this.footCooldown = .16
+        } else if (action.groom > .3) {
+          this.spawnPuff(f.x, f.y, 1, 34, 26, 1.2)
+          this.footCooldown = .22
+        } else {
+          this.footCooldown = .1
+        }
+      }
+      this.wasAirborne = A
+    }
     this.fly.root.position.set(f.x, 0, f.y)
     this.fly.root.rotation.y = -f.h + Math.PI
     this.fly.update(dt, {
@@ -672,12 +788,20 @@ export class Scene3D {
 
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i]
-      p.life -= dt * 1.2
-      p.vy -= 420 * dt
+      p.life -= dt * p.decay
+      p.vy -= p.grav * dt
+      if (p.drag) {
+        const k = Math.max(0, 1 - p.drag * dt)
+        p.vx *= k; p.vz *= k; p.vy *= k
+      }
       p.mesh.position.x += p.vx * dt
       p.mesh.position.y = Math.max(2, p.mesh.position.y + p.vy * dt)
       p.mesh.position.z += p.vz * dt
-      p.mesh.rotation.x += dt * 6; p.mesh.rotation.z += dt * 4
+      p.mesh.rotation.x += dt * 6 * p.spin
+      p.mesh.rotation.z += dt * 4 * p.spin
+      if (p.grow) p.mesh.scale.multiplyScalar(1 + p.grow * dt)
+      // opacity is on the shared material, so per-particle fade is done with scale
+      if (p.fade && p.life < .45) p.mesh.scale.multiplyScalar(Math.max(0, 1 - dt * 4))
       if (p.life <= 0) { this.scene.remove(p.mesh); this.particles.splice(i, 1) }
     }
 

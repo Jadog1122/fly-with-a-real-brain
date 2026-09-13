@@ -8,7 +8,7 @@ import { MotorDecoder, type Action, type Rates } from './motor'
 import { World } from './world'
 import { Scene3D } from './scene3d'
 import { PetAudio } from './audio'
-import { snapshot, restore, read, write, forget, DEFAULTS, type Settings } from './save'
+import { snapshot, restore, read, write, forget, DEFAULTS, type Settings, type Quality } from './save'
 import * as THREE from 'three'
 import { loadNeurons, type NeuronData } from '../data'
 import { Brain } from '../brain'
@@ -27,6 +27,8 @@ export interface Snapshot {
   readouts: ReadoutView[]
   pops: PopView[]
   brainNote: string
+  /** Set when the renderer dropped a tier on its own, so the UI can say so. */
+  autoQuality: Quality | null
 }
 
 const TH: Record<string, number> = {
@@ -78,6 +80,8 @@ export class PetEngine {
   private popKey = 0
   private ready = false
   private brainNote = ''
+  /** Set when the renderer dropped a tier on its own, so the UI can say so. */
+  autoQuality: Quality | null = null
   picked: StimKind = STIMULI[0]
 
   /** Set by boot(); anything that kills the simulation after start-up lands here. */
@@ -133,6 +137,11 @@ export class PetEngine {
     this.settings = settings
     this.audio.setVolume(settings.volume)
     this.scene.setQuality(settings.quality)
+    // the renderer can decide it cannot hold the frame rate and drop a tier itself
+    this.scene.onDegrade = q => {
+      this.applySettings({ quality: q })
+      this.autoQuality = q          // the next tick carries it to the UI
+    }
     document.documentElement.dataset.cb = settings.colourblind ? 'on' : ''
     document.documentElement.dataset.reduceMotion = settings.reducedMotion ? 'on' : ''
     // Scene3D watches its own host for resize
@@ -181,6 +190,8 @@ export class PetEngine {
   }
 
   get currentSettings(): Settings { return this.settings }
+
+
 
   /** Forget this fly and start a new one. */
   resetPet() {
@@ -404,7 +415,11 @@ export class PetEngine {
       simMs: this.simMs, stepsPerSec: this.stepsPerSec,
       realtime: this.stepsPerSec / 10000,
       readouts, pops: this.pops, brainNote: this.brainNote,
+      autoQuality: this.autoQuality,
     })
+    // one-shot: cleared here rather than by the UI, so the notice cannot re-fire if
+    // the view remounts
+    this.autoQuality = null
 
   }
 

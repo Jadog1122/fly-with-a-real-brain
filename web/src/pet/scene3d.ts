@@ -1309,7 +1309,9 @@ export class Scene3D {
       this.rippleB.offset.y += dt * 0.017
     }
     this.windTime.value += dt
-    this.airborne += ((action.escape ? 1 : 0) - this.airborne) * Math.min(1, dt * 7)
+    // The world owns the flight now, so the renderer follows it rather than easing its
+    // own copy off the escape flag.
+    this.airborne = f.flying
 
     // Ground contact, as dust.  Everything here is driven by decoded behaviour, so the
     // fly kicks up dirt for the same reason it walks.
@@ -1336,18 +1338,23 @@ export class Scene3D {
       }
       this.wasAirborne = A
     }
-    this.fly.root.position.set(f.x, 0, f.y)
-    this.fly.root.rotation.y = -f.h + Math.PI
+    // Altitude, plus a small bob locked to the wingbeat: a fly in the air is never
+    // still vertically, and without it the flight reads as a slide along a rail.
+    const bob = Math.sin(f.beat) * 2.6 * f.flying
+    this.fly.root.position.set(f.x, f.alt + bob, f.y)
+    this.fly.root.rotation.set(f.pitch, -f.h + Math.PI, f.bank, 'YXZ')
     this.fly.update(dt, {
       speed: f.speed, legPhase: f.legPhase, escape: action.escape,
       proboscis: action.proboscis, groom: action.groom, startle: f.startle,
       airborne: this.airborne,
     })
 
+    // The contact shadow stays on the ground and spreads and fades as it climbs, which
+    // is the main cue for how high it actually is.
     this.shadow.position.set(f.x, 1.2, f.y)
-    const lift = 1 - this.airborne * .55
-    this.shadow.scale.setScalar(lift)
-    ;(this.shadow.material as THREE.MeshBasicMaterial).opacity = .34 * lift
+    const climb = Math.min(1, f.alt / 96)
+    this.shadow.scale.setScalar(1 + climb * 1.5)
+    ;(this.shadow.material as THREE.MeshBasicMaterial).opacity = .34 * (1 - climb * 0.72)
 
     // A looming stimulus is a thing falling towards you, so it has to fall: it drops
     // from 620 to just overhead on a ~2.4 s cycle and drags a shadow that widens as it
@@ -1402,7 +1409,7 @@ export class Scene3D {
     // fly (or the whole arena in overview), so looking around never fights the chase.
     const goal = this.overview
       ? new THREE.Vector3(this.world.w / 2, 0, this.world.h / 2)
-      : new THREE.Vector3(f.x, 26, f.y)
+      : new THREE.Vector3(f.x, 26 + f.alt * 0.85, f.y)
     this.camTarget.lerp(goal, Math.min(1, dt * (this.overview ? 1.6 : 2.6)))
     this.controls.target.copy(this.camTarget)
     const sh = this.shake * 12

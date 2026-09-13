@@ -19,6 +19,7 @@
     "test:e2e:local": "playwright test --project=chromium --project=firefox"
   },
   "dependencies": {
+    "maath": "^0.10.8",
     "open-props": "^1.7.23",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

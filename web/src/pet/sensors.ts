@@ -99,6 +99,8 @@ export interface DriveResult {
 export function computeDrive(
   stims: Stim[], fx: number, fy: number, heading: number,
   groups: Map<string, SensorGroup>, gain: (id: string) => number, dtMs = 0,
+  /** Height above the ground. Everything it can smell or taste is lying on it. */
+  alt = 0,
 ): DriveResult {
   const rates = new Map<number, number>()
   const perStim = new Map<number, number>()
@@ -109,7 +111,9 @@ export function computeDrive(
   }
 
   for (const s of stims) {
-    const d = Math.hypot(s.x - fx, s.y - fy)
+    // Real distance, in three dimensions. A fly 90 units up is 90 units away from a
+    // drop of sugar directly beneath it, and its feet certainly cannot taste it.
+    const d = Math.hypot(s.x - fx, s.y - fy, alt)
     const raw = s.kind.contact
       ? (d < s.kind.range ? 1 - d / s.kind.range : 0)
       : Math.exp(-d / s.kind.range)

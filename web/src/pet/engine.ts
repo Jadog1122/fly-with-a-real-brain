@@ -343,7 +343,7 @@ export class PetEngine {
     const gain = (id: string) => id === 'sugar' ? 0.55 + this.world.fly.hunger * 0.9 : 1
     const { rates, perStim, touching } = computeDrive(
       this.world.stims, this.world.fly.x, this.world.fly.y, this.world.fly.h,
-      this.groups, gain, dtMs)
+      this.groups, gain, dtMs, this.world.fly.alt)
 
     this.wanderV += (Math.random() - 0.5) * dtMs * 0.006
     this.wanderV *= 0.97

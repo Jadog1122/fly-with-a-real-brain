@@ -82,6 +82,15 @@ function pivotAt(obj: THREE.Object3D, at: THREE.Vector3) {
 /** One rigged limb: a pivot at the attachment, plus which way is "out" for that side. */
 interface Limb { pivot: THREE.Group; side: number }
 
+/**
+ * Frame-rate independent easing toward a target.  A plain `cur += (t - cur) * k` moves
+ * further per second the faster the machine renders, so a pose that eases in over a
+ * quarter second at 60 fps snaps at 144.
+ */
+function ease(cur: number, target: number, rate: number, dt: number): number {
+  return cur + (target - cur) * (1 - Math.exp(-rate * dt))
+}
+
 export class Fly3D {
   readonly root = new THREE.Group()
 
@@ -96,6 +105,9 @@ export class Fly3D {
   private eyeMat?: THREE.MeshStandardMaterial
   private wingPhase = 0
   private groomPhase = 0
+  private escapeBlend = 0
+  private groomBlend = 0
+  private proboscisBlend = 0
   private ready = false
 
   constructor() {
@@ -197,38 +209,55 @@ export class Fly3D {
     speed: number; legPhase: number; escape: boolean; proboscis: number
     groom: number; startle: number; airborne: number
   }) {
-    this.wingPhase += dt * (o.escape ? 90 : 12)
+    // Behaviours arrive as booleans from the decoder, and using them directly made
+    // every transition a hard cut: legs teleported into the grooming pose, wings went
+    // from a shiver to a thrash in one frame, the proboscis popped into existence.
+    // These blends ease between poses instead.  exp(-rate * dt) rather than a fixed
+    // step per frame, so the timing is the same at 30 fps and at 144.
+    this.escapeBlend = ease(this.escapeBlend, o.escape ? 1 : 0, 11, dt)
+    this.groomBlend = ease(this.groomBlend, o.groom > .3 ? 1 : 0, 8, dt)
+    this.proboscisBlend = ease(this.proboscisBlend, o.proboscis, 14, dt)
+
+    this.wingPhase += dt * (12 + this.escapeBlend * 78)
     this.groomPhase += dt * 14
     if (!this.ready) return
 
     const moving = Math.min(1, Math.abs(o.speed) / 40)
-    const grooming = o.groom > .3
 
     // Alternating tripod: each side's front and hind leg swing with the other side's
     // middle leg, which is how a fly actually walks.
     this.legs.forEach((leg, i) => {
-      if (grooming && i % 3 === 0) {
-        // front legs come up off the ground and rub the face, the two out of phase
-        const r = Math.sin(this.groomPhase + (i ? Math.PI : 0)) * .45
-        leg.pivot.rotation.set(1.15 + r, 0, leg.side * .35)
-        return
-      }
       const phase = o.legPhase * 1.6 + (i % 2 ? Math.PI : 0)
       const swing = Math.sin(phase) * .5 * moving
       const lift = Math.max(0, Math.cos(phase)) * .38 * moving
+
+      if (i % 3 === 0 && this.groomBlend > .001) {
+        // front legs come up off the ground and rub the face, the two out of phase,
+        // blended against wherever the walking stride currently has them
+        const r = Math.sin(this.groomPhase + (i ? Math.PI : 0)) * .45
+        const b = this.groomBlend
+        leg.pivot.rotation.set(
+          swing + (1.15 + r - swing) * b,
+          0,
+          leg.side * (lift + (.35 - lift) * b),
+        )
+        return
+      }
       leg.pivot.rotation.set(swing, 0, leg.side * lift)
     })
 
     // Wings idle with a shiver and thrash on escape, hinged at the thorax.
-    const beat = Math.sin(this.wingPhase) * (o.escape ? 1.0 : .06)
+    const beat = Math.sin(this.wingPhase) * (.06 + this.escapeBlend * .94)
     for (const w of this.wings) {
-      w.pivot.rotation.z = w.side * (beat + (o.escape ? .5 : 0))
+      w.pivot.rotation.z = w.side * (beat + this.escapeBlend * .5)
       w.pivot.rotation.y = w.side * beat * .3
     }
 
     if (this.proboscis) {
-      this.proboscis.visible = o.proboscis > .01
-      this.proboscis.scale.set(.34, .95 * (.02 + o.proboscis), .5)
+      // kept mounted until the blend has actually reached zero, or it vanishes
+      // mid-retraction
+      this.proboscis.visible = this.proboscisBlend > .005
+      this.proboscis.scale.set(.34, .95 * (.02 + this.proboscisBlend), .5)
     }
 
     // Squash on landing, stretch on takeoff.

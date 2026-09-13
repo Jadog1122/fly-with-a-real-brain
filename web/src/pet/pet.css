@@ -185,3 +185,16 @@ html, body { background: var(--rpg-ui-body-bg, #17100a); }
   .pet-pop { animation-duration: 2.6s }
   .pet-brainpanel { transition: none }
 }
+
+/* Paused. Deliberately not a full-screen scrim: the point of pausing this is often to
+   look at the fly, so the world stays visible. */
+.pet-paused {
+  position: absolute; inset: 0; z-index: 35; pointer-events: none;
+  display: flex; align-items: flex-start; justify-content: center; padding-top: 78px;
+}
+.pet-paused-chip {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 8px 20px; text-align: center;
+}
+.pet-paused-chip b { font-size: 14px; letter-spacing: .1em; text-transform: uppercase; }
+.pet-paused-chip span { font-size: 11px; opacity: .6; }

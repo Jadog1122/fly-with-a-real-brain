@@ -207,7 +207,10 @@ export class PetEngine {
       this.ready = true
     } else if (m.type === 'tick') {
       this.lastRates = m.rates
-      this.simPending = Math.min(this.simPending + (m.simMs - this.simMs), 400)
+      // While paused, follow the clock but do not bank the time: the worker can post one
+      // more tick after the pause message, and spending it walked the fly on for a
+      // couple of units after it was supposed to have stopped.
+      if (!this.paused) this.simPending = Math.min(this.simPending + (m.simMs - this.simMs), 400)
       this.simMs = m.simMs
       const wall = Math.max(m.wallMs, 1) / 1000
       this.stepsPerSec = this.stepsPerSec * 0.88 + (m.steps / wall) * 0.12
@@ -224,10 +227,35 @@ export class PetEngine {
   }
 
   setSpeed(f: number) {
-    this.worker.postMessage({ type: 'speed', factor: f })
     this.settings = { ...this.settings, speed: f }
+    // while paused the worker stays at 0; the new speed takes effect on resume
+    if (!this.paused) this.worker.postMessage({ type: 'speed', factor: f })
     this.saveNow()
   }
+
+  private paused = false
+  get isPaused() { return this.paused }
+
+  /**
+   * Pause by taking the worker's clock to zero. Nothing else needs to know: the world
+   * is driven by how much simulated time the brain got through, so a brain that is not
+   * stepping freezes the body too, with no second notion of "stopped" to keep in sync.
+   *
+   * Deliberately not persisted - reloading into a permanently paused fly would just
+   * look broken.
+   */
+  setPaused(on: boolean) {
+    if (this.paused === on) return
+    this.paused = on
+    this.worker.postMessage({ type: 'speed', factor: on ? 0 : this.settings.speed })
+    this.audio.mute(on || !this.settings.sound)
+    // The worker can get one more run() in before it sees the message, worth up to its
+    // 50 ms catch-up cap. Dropping the queued simulated time stops the body spending it,
+    // which was a visible ~10-unit lurch at the moment of pausing.
+    if (on) this.simPending = 0
+  }
+
+  togglePause() { this.setPaused(!this.paused); return this.paused }
   setOverview(on: boolean) { this.scene?.setOverview(on) }
   pick(kind: StimKind) {
     this.picked = kind

@@ -32,6 +32,7 @@ export default function App() {
   const [overview, setOverview] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [paused, setPaused] = useState(false)
   const [settings, setSettings] = useState<Settings>({ ...DEFAULTS, picked: 'sugar' })
   const [boot, setBoot] = useState<BootState>(() => {
     const missing = missingFeatures()
@@ -77,6 +78,10 @@ export default function App() {
       if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return
       if (ev.key === 'v' || ev.key === 'V') setOverview(o => !o)
       if (ev.key === 'Escape') { setShowSettings(false); setConfirmReset(false) }
+      if (ev.key === 'p' || ev.key === 'P' || ev.key === ' ') {
+        ev.preventDefault()               // Space would otherwise re-click a focused button
+        setPaused(e.togglePause())
+      }
     }
     addEventListener('keydown', key)
     return () => {
@@ -152,6 +157,12 @@ export default function App() {
                   }}>{sound ? '🔊' : '🔇'}</button>
           <button className="rpg-ui-btn" title="Remove everything you have put down"
                   onClick={() => { engine?.clear(); engine?.saveNow() }}>Clear</button>
+          <button className={`rpg-ui-btn${paused ? ' on' : ''}`}
+                  title={paused ? 'Resume (P)' : 'Pause (P)'}
+                  aria-pressed={paused}
+                  onClick={() => setPaused(engine!.togglePause())}>
+            {paused ? '▶' : '❚❚'}
+          </button>
           <button className={`rpg-ui-btn${showSettings ? ' on' : ''}`} title="Settings"
                   aria-expanded={showSettings}
                   onClick={() => { setShowSettings(v => !v); setConfirmReset(false) }}>⚙</button>
@@ -232,6 +243,15 @@ export default function App() {
           engine?.resetPet(); engine?.saveNow(); setConfirmReset(false); setShowSettings(false)
         }}
       />
+
+      {paused && (
+        <div className="pet-paused" role="status">
+          <div className="rpg-ui-glass-panel pet-paused-chip">
+            <b>Paused</b>
+            <span>the brain has stopped stepping</span>
+          </div>
+        </div>
+      )}
 
       <BootOverlay state={boot} onRetry={() => location.reload()} />
 

@@ -178,7 +178,7 @@ export default function App() {
           <button className={`rpg-ui-btn${showSettings ? ' on' : ''}`} title="Settings"
                   aria-expanded={showSettings}
                   onClick={() => { setShowSettings(v => !v); setConfirmReset(false) }}>⚙</button>
-          <a className="rpg-ui-btn" href="/">Explorer</a>
+          <a className="rpg-ui-btn" href="./index.html">Explorer</a>
         </div>
       </div>
 

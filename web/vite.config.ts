@@ -4,6 +4,10 @@ import { resolve } from 'node:path'
 
 // port comes from the environment so the preview harness can pick a free one
 export default defineConfig({
+  // Relative, so the same build works at a domain root and under a project subpath
+  // like /fly-with-a-real-brain/ on GitHub Pages. The data files are already fetched
+  // relative to the page, so they follow.
+  base: './',
   plugins: [react()],
   // The dep optimizer pre-bundled the UI library with its own copy of react/jsx-runtime,
   // which gave the app two React instances ("Invalid hook call").  Deduping React and

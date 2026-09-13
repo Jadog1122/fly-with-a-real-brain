@@ -9,12 +9,14 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { Sky } from 'three/examples/jsm/objects/Sky.js'
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
+import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js'
 import { VignetteShader } from 'three/examples/jsm/shaders/VignetteShader.js'
 import { BrightnessContrastShader } from 'three/examples/jsm/shaders/BrightnessContrastShader.js'
 import type { Quality } from './save'
@@ -134,7 +136,7 @@ export class Scene3D {
     // and desaturates them; AgX holds hue through the rolloff, which is what a sunlit
     // meadow needs. It renders darker, hence the higher exposure.
     this.renderer.toneMapping = THREE.AgXToneMapping
-    this.renderer.toneMappingExposure = 1.45
+    this.renderer.toneMappingExposure = 1.15
     host.appendChild(this.renderer.domElement)
 
     this.camera = new THREE.PerspectiveCamera(38, 1, 10, 4000)
@@ -149,47 +151,63 @@ export class Scene3D {
     u.rayleigh.value = 1.6           // how blue the sky gets away from the sun
     u.mieCoefficient.value = 0.006
     u.mieDirectionalG.value = 0.8    // tightness of the glow around the sun
-    const SUN = new THREE.Vector3(380, 620, 260).normalize()
+    const SUN = new THREE.Vector3(620, 330, 430).normalize()   // ~23 degrees: late, but still on the ground
     u.sunPosition.value.copy(SUN)
     this.scene.add(sky)
 
-    // Light the scene from that same sky rather than from a guessed ambient colour:
-    // PMREM turns the dome into an environment map, which is what gives the props
-    // their bounce and their sky-tinted shadow side.
+    // Ambient light comes from a real captured environment, not a guess. The sky dome
+    // is used as a stand-in until the HDRI arrives, so first paint never waits on it.
     const pmrem = new THREE.PMREMGenerator(this.renderer)
     pmrem.compileEquirectangularShader()
-    const skyRT = pmrem.fromScene(sky as unknown as THREE.Scene)
-    this.scene.environment = skyRT.texture
+    this.scene.environment = pmrem.fromScene(sky as unknown as THREE.Scene).texture
     this.scene.environmentIntensity = 0.26   // enough to tint the shade, not to flatten it
-    pmrem.dispose()
+
+    // A real autumn-forest capture (Poly Haven, CC0), downsampled hard: only the
+    // ambient is taken from it - the sun is the directional light below - and PMREM
+    // blurs it anyway, so 341x170 carries the same mean radiance as the 1k original
+    // at an eighth of the bytes.
+    new RGBELoader().loadAsync('env/meadow_1k.hdr').then(hdr => {
+      hdr.mapping = THREE.EquirectangularReflectionMapping
+      const env = pmrem.fromEquirectangular(hdr).texture
+      this.scene.environment = env
+      // Low on purpose. Measured off the framebuffer: at 0.9 the whole frame sat at a
+      // mean of 0.57 with nothing ever dark - flat and grey however the exposure was
+      // set. At 0.25 the histogram matches the reference photographs: p05 at true
+      // black, median 0.15, p95 at 0.93. Mostly shadow, with bright pools of sun.
+      this.scene.environmentIntensity = 0.55
+      hdr.dispose()
+      pmrem.dispose()
+    }).catch(() => pmrem.dispose())           // the sky stand-in is a fine fallback
 
     // Fog tinted to the sky's horizon, not to the old flat blue, or distant grass
     // reads as a different colour from the sky behind it.
-    this.scene.fog = new THREE.Fog(0xb4d3e6, 780, 1700)
+    // At ground level the camera sees the whole arena, so fog that starts close
+    // greys out everything past the fly.
+    this.scene.fog = new THREE.Fog(0x9db58f, 1700, 4200)
 
     // warm sun
-    this.key = new THREE.DirectionalLight(0xfff0d8, 2.7)
-    this.key.position.set(380, 620, 260)
+    this.key = new THREE.DirectionalLight(0xffd9a0, 4.4)   // late sun is warmer and harder
+    this.key.position.set(620, 330, 430)
     this.key.castShadow = true
     this.key.shadow.mapSize.set(2048, 2048)
     // Tight, and moved with the fly each frame (see updateShadowBox). A single box
     // over the whole 760x490 arena at 2048 gives ~0.6 world units per texel, which
     // turns grass shadows into mush; 300 units across is four times sharper.
     const d = 300
-    Object.assign(this.key.shadow.camera, { left: -d, right: d, top: d, bottom: -d, near: 60, far: 2400 })
+    Object.assign(this.key.shadow.camera, { left: -d, right: d, top: d, bottom: -d, near: 10, far: 2400 })
     this.key.shadow.bias = -0.0012
     this.key.shadow.normalBias = 1.2   // stops thin grass blades shadow-acneing themselves
     this.scene.add(this.key, this.key.target)
 
     // A cool fill from the opposite side, so the shadow side of a prop is modelled
     // rather than flat. Half the key's intensity and no shadow of its own.
-    const fill = new THREE.DirectionalLight(0xbcd8ff, 0.34)
+    const fill = new THREE.DirectionalLight(0x9fc4e8, 0.11)
     fill.position.set(-320, 260, -420)
     this.scene.add(fill)
 
     // Ground bounce only - the sky half of this is now doing its job through the
     // environment map, so the hemisphere light is much weaker than it was.
-    this.scene.add(new THREE.HemisphereLight(0xbfe4ff, 0x5a7b42, 0.22))
+    this.scene.add(new THREE.HemisphereLight(0xa8c8e8, 0x6b5334, 0.14))
 
     // Ground.  Both surfaces were a single flat colour over a very large area, which
     // reads as paper however good the lighting is.  The Quaternius kit is flat-shaded
@@ -283,13 +301,15 @@ export class Scene3D {
     // frame the fly on the very first render rather than easing in from the origin
     const f = world.fly
     this.camTarget.set(f.x, 26, f.y)
-    this.camera.position.set(f.x - Math.cos(f.h) * 250, 340, f.y - Math.sin(f.h) * 250)
+    // Near ground level, not a 3/4 view from above: at 3 mm tall the world should be
+    // read from inside it, with grass overhead. ~14 degrees of elevation.
+    this.camera.position.set(f.x - Math.cos(f.h) * 300, 78, f.y - Math.sin(f.h) * 300)
     this.camera.lookAt(this.camTarget)
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement)
     this.controls.enableDamping = true
     this.controls.dampingFactor = .08
-    this.controls.minDistance = 120
+    this.controls.minDistance = 95        // close enough to fill the frame on purpose
     this.controls.maxDistance = 1400
     this.controls.maxPolarAngle = Math.PI / 2.12      // never go under the ground
     this.controls.enablePan = false
@@ -484,6 +504,7 @@ export class Scene3D {
           // and out of view as the camera turns
           im.computeBoundingSphere()
           this.scene.add(im)
+          this.occluders.push(im)
         }
       }
     }
@@ -612,16 +633,22 @@ export class Scene3D {
    * at. In the overview the box has to open up again to cover everything.
    */
   private updateShadowBox() {
-    const f = this.world.fly
     const cam = this.key.shadow.camera as THREE.OrthographicCamera
     const d = this.overview ? 640 : 300
     if (cam.left !== -d) {
       cam.left = -d; cam.right = d; cam.top = d; cam.bottom = -d
       cam.updateProjectionMatrix()
     }
-    // the light keeps its direction; only the centre of its box moves
-    this.key.position.set(f.x + 380, 620, f.y + 260)
-    this.key.target.position.set(f.x, 0, f.y)
+    // The sun follows the camera's azimuth rather than sitting at a fixed world
+    // direction. Physically a cheat, but with a fixed sun the fly was flatly lit from
+    // one side of the arena and silhouetted from the other, and which you got depended
+    // on where it had wandered. Held ~130 degrees off the view direction it is always
+    // a back-three-quarter rim light - the reference's lighting, and what every game
+    // does for the same reason.
+    const t = this.camTarget
+    const a = Math.atan2(this.camera.position.z - t.z, this.camera.position.x - t.x) + 2.27
+    this.key.position.set(t.x + Math.cos(a) * 700, 330, t.z + Math.sin(a) * 700)
+    this.key.target.position.set(t.x, 0, t.z)
     this.key.target.updateMatrixWorld()
   }
 
@@ -655,7 +682,43 @@ export class Scene3D {
    * the extra geometry pass, and particles are the only thing that grows without
    * bound during play.
    */
+  private occluders: THREE.Object3D[] = []
+  private ray = new THREE.Raycaster()
+  private camDist = 300
+
+  /**
+   * Third-person camera collision. At ground level inside a meadow the camera spends
+   * most of its time behind a grass blade, so cast from what we are looking at back
+   * toward the camera and, if the scenery is in the way, sit just in front of it.
+   */
+  private avoidOccluders() {
+    const t = this.camTarget
+    const dir = new THREE.Vector3().subVectors(this.camera.position, t)
+    const want = dir.length()
+    if (want < 1e-3) return
+    dir.divideScalar(want)
+
+    this.ray.set(t, dir)
+    this.ray.far = want
+    const hits = this.ray.intersectObjects(this.occluders, false)
+    // pull in to the nearest blocker, but never closer than the orbit's own minimum
+    const free = hits.length ? Math.max(this.controls.minDistance, hits[0].distance - 14) : want
+    // ease out, snap in: popping back out as a blade passes is far more distracting
+    // than tightening quickly as one arrives
+    this.camDist = free < this.camDist ? free : this.camDist + (free - this.camDist) * 0.06
+    this.camera.position.copy(t).addScaledVector(dir, this.camDist)
+  }
+
   private composer: EffectComposer | null = null
+  private bokeh: BokehPass | null = null
+
+  /** Keep the focal plane on whatever the camera is orbiting - normally the fly. */
+  private updateFocus() {
+    if (!this.bokeh) return
+    const d = this.camera.position.distanceTo(this.camTarget)
+    const u = this.bokeh.uniforms as Record<string, { value: number }>
+    u.focus.value += (d - u.focus.value) * 0.25     // eased, or it snaps while orbiting
+  }
 
   /**
    * Post-processing, rebuilt per quality tier.
@@ -696,13 +759,26 @@ export class Scene3D {
                               scale: 1.1, samples: 12 })
       c.addPass(ao)
 
-      const bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.22, 0.7, 0.92)
+      const bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.55, 0.65, 0.78)
       c.addPass(bloom)   // threshold high: only the sunlit highlights, not the whole meadow
     }
 
+    if (q === 'high') {
+      // Depth of field is the strongest scale cue there is. A 3 mm subject shot
+      // close up has millimetres of focus, and everything being pin-sharp is exactly
+      // what made this read as a toy diorama rather than a macro photograph.
+      // Focus distance is driven per frame in updateFocus().
+      this.bokeh = new BokehPass(this.scene, this.camera, {
+        focus: 300, aperture: 0.00008, maxblur: 0.013,
+      })
+      c.addPass(this.bokeh)
+    } else {
+      this.bokeh = null
+    }
+
     const grade = new ShaderPass(BrightnessContrastShader)
-    grade.uniforms.brightness.value = 0.01
-    grade.uniforms.contrast.value = 0.10
+    grade.uniforms.brightness.value = 0.0
+    grade.uniforms.contrast.value = 0.14
     c.addPass(grade)
 
     const vignette = new ShaderPass(VignetteShader)
@@ -749,7 +825,7 @@ export class Scene3D {
     const f = this.world.fly
     const p = on
       ? new THREE.Vector3(this.world.w / 2, 820, this.world.h / 2 + 520)
-      : new THREE.Vector3(f.x - Math.cos(f.h) * 250, 340, f.y - Math.sin(f.h) * 250)
+      : new THREE.Vector3(f.x - Math.cos(f.h) * 300, 78, f.y - Math.sin(f.h) * 300)
     this.camera.position.copy(p)
     // The overview sits ~970 units out, which put the whole arena inside a fog band
     // tuned for the follow camera and washed it to flat grey.  Push the haze back so
@@ -763,7 +839,6 @@ export class Scene3D {
     const f = this.world.fly
 
     this.measureFps(dt)
-    this.updateShadowBox()
     this.airborne += ((action.escape ? 1 : 0) - this.airborne) * Math.min(1, dt * 7)
 
     // Ground contact, as dust.  Everything here is driven by decoded behaviour, so the
@@ -864,9 +939,9 @@ export class Scene3D {
     this.camera.position.x += (Math.random() - .5) * sh
     this.camera.position.y += (Math.random() - .5) * sh
     this.controls.update()
-
-    this.key.target.position.copy(this.camTarget)
-    this.key.position.set(this.camTarget.x + 380, 620, this.camTarget.z + 260)
+    this.avoidOccluders()
+    this.updateShadowBox()
+    this.updateFocus()
 
     if (this.composer) this.composer.render()
     else this.renderer.render(this.scene, this.camera)

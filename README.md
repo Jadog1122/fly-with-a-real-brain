@@ -511,6 +511,42 @@ Readout rates are smoothed in simulated time inside the worker. Per-message rate
 useless: a message can cover a single 0.1 ms step, where one spike from a two-neuron
 readout reads as 10 kHz and trips every behavioural threshold on noise.
 
+### How it is checked
+
+There are 72 unit tests (vitest, node) and a cross-browser smoke suite (Playwright),
+run on every push by GitHub Actions along with `tsc --noEmit` and eslint at zero
+warnings. `npm run check` runs the first three locally.
+
+The unit tests deliberately pin the bugs that were actually found while building this,
+because those are the ones that came back: sensory laterality (a negated sine that drove
+the left stimulus into the right antenna, invisible because the turn sign cancelled it),
+the feeding deadlock (the decoder must *not* treat an extended proboscis as "busy"),
+refractory gating, and the arena bounds.
+
+The engine is locked by two goldens — a deterministic cascade and a seeded Poisson run.
+**They lock against drift; they do not re-prove agreement with Brian2.** That is still
+`bake/14_validate_engine.py`, which bundles this same source, runs it against Brian2 and
+compares spike for spike. It needs Brian2, a C++ compiler and the 2.4 GB annotation
+cache, so it cannot run in CI. Regenerate the goldens only after re-running it.
+
+Writing the tests turned up four defects that had been sitting there: two divergent
+copies of the payload parser (the worker's was missing `i64`, so it could not have read
+`neurons.bin`), a `kick()` default of 1e-3 mV that was a no-op because `step()` decays
+the membrane before thresholding, an operator-precedence slip in the wing update, and a
+worker protocol typed `any` on both ends, which is what hid the first two.
+
+### Browsers
+
+Chromium, Firefox and WebKit are all smoke-tested on every push: both pages must boot,
+the HUD must report a non-zero steps/s — which only happens if the worker is really
+running — and no console or uncaught error may appear. WebKit runs only in CI, because
+Playwright's bundled WebKit segfaults on launch on the macOS host this was built on.
+
+It needs WebGL 2, ES-module Web Workers and `BigInt64Array`; all three are detected up
+front, and a browser missing any of them gets a sentence naming what and why instead of
+a blank page. `roundRect` has a fallback, so Safari before 16.4 loses the rounded corners
+on the clearing and nothing else.
+
 ---
 
 ## The explorer

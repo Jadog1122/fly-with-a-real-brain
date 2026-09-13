@@ -120,6 +120,39 @@ export class Scene3D {
   private wasAirborne = 0
   private prevAlt = 0
   private airCooldown = 0
+  private rippleCooldown = 0
+  private ripples: { mesh: THREE.Mesh; life: number }[] = []
+  private rippleGeo = new THREE.RingGeometry(0.55, 1, 28)
+  private rippleMat = new THREE.MeshBasicMaterial({
+    color: 0xdff0ff, transparent: true, opacity: 0.5,
+    depthWrite: false, side: THREE.DoubleSide,
+  })
+
+  /**
+   * Downwash. A fly passing low over water pushes air into it, and the rings that
+   * spread from that are the most legible thing water does. Rings rather than any
+   * perturbation of the surface normals: the surface is a scrolling normal map, and
+   * poking a local dent into it costs far more than drawing an expanding circle.
+   */
+  private spawnRipple(x: number, z: number) {
+    const m = new THREE.Mesh(this.rippleGeo, this.rippleMat.clone())
+    m.rotation.x = -Math.PI / 2
+    m.position.set(x, (this.water?.position.y ?? 1.1) + 0.35, z)
+    m.scale.setScalar(3)
+    m.renderOrder = 2
+    this.scene.add(m)
+    this.ripples.push({ mesh: m, life: 1 })
+    while (this.ripples.length > 14) this.scene.remove(this.ripples.shift()!.mesh)
+  }
+
+  /** Is this point over the puddle? The blob is roughly an ellipse, so treat it as one. */
+  private overWater(x: number, z: number) {
+    const w = this.water
+    if (!w) return false
+    const dx = (x - w.position.x) / 168
+    const dz = (z - w.position.z) / 104
+    return dx * dx + dz * dz < 1
+  }
 
   // adaptive quality
   private quality: Quality = 'high'
@@ -1361,6 +1394,16 @@ export class Scene3D {
       }
       this.wasAirborne = f.alt
 
+      // Downwash on the puddle, whenever it passes low over the water.
+      if (f.flying > 0.25 && f.alt < 130 && this.overWater(f.x, f.y)) {
+        this.rippleCooldown -= dt
+        if (this.rippleCooldown <= 0) {
+          this.spawnRipple(f.x, f.y)
+          // closer means faster and harder, the way downwash actually works
+          this.rippleCooldown = 0.12 + (f.alt / 130) * 0.3
+        }
+      }
+
       // Turbulence: motes shed into the air behind a flying fly. Nothing at this scale
       // moves through air without disturbing it, and in flight there is otherwise no
       // contact with anything to show speed against.
@@ -1434,6 +1477,15 @@ export class Scene3D {
     }
     for (const [id, sh] of this.loomShadows) {
       if (!stims.some(x => x.id === id)) { this.scene.remove(sh); this.loomShadows.delete(id) }
+    }
+
+    for (let i = this.ripples.length - 1; i >= 0; i--) {
+      const rp = this.ripples[i]
+      rp.life -= dt * 0.85
+      rp.mesh.scale.multiplyScalar(1 + dt * 2.6)     // spreads as it weakens
+      const mm = rp.mesh.material as THREE.MeshBasicMaterial
+      mm.opacity = Math.max(0, rp.life * 0.5)
+      if (rp.life <= 0) { this.scene.remove(rp.mesh); mm.dispose(); this.ripples.splice(i, 1) }
     }
 
     for (let i = this.particles.length - 1; i >= 0; i--) {

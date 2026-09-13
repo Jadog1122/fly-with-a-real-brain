@@ -37,6 +37,12 @@ const TONE: Record<string, string> = {
 }
 const PRIORITY = ['escape', 'proboscis', 'groom', 'backward', 'forward', 'turn_a', 'turn_b']
 
+/** The protocol worker.ts posts back, as a discriminated union on `type`. */
+type WorkerMessage =
+  | { type: 'ready'; n: number; members: Uint32Array }
+  | { type: 'tick'; simMs: number; steps: number; rates: Rates
+      spikes: Uint16Array; wallMs: number; driven: number }
+
 export class PetEngine {
   readonly world = new World()
   readonly stimuli = STIMULI
@@ -106,18 +112,18 @@ export class PetEngine {
     requestAnimationFrame(this.paint)
   }
 
-  private onWorker(m: any) {
+  private onWorker(m: WorkerMessage) {
     if (m.type === 'ready') {
-      this.members = m.members as Uint32Array
+      this.members = m.members
       this.ready = true
     } else if (m.type === 'tick') {
-      this.lastRates = m.rates as Rates
+      this.lastRates = m.rates
       this.simPending = Math.min(this.simPending + (m.simMs - this.simMs), 400)
       this.simMs = m.simMs
-      const wall = Math.max(m.wallMs as number, 1) / 1000
+      const wall = Math.max(m.wallMs, 1) / 1000
       this.stepsPerSec = this.stepsPerSec * 0.88 + (m.steps / wall) * 0.12
       if (this.brain && this.members) {
-        const sp = m.spikes as Uint16Array
+        const sp = m.spikes
         if (sp.length) {
           const full = new Uint32Array(sp.length)
           for (let k = 0; k < sp.length; k++) full[k] = this.members[sp[k]]

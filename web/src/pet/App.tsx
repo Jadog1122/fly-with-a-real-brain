@@ -36,7 +36,7 @@ export default function App() {
       pending = s
       if (!timer) timer = window.setTimeout(flush, 50)
     }).catch(err => console.error('[pet] boot failed', err))
-    if (import.meta.env.DEV) (window as any).__pet = { engine: e }
+    if (import.meta.env.DEV) window.__pet = { engine: e }
     const key = (ev: KeyboardEvent) => {
       const t = ev.target as HTMLElement | null
       if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return

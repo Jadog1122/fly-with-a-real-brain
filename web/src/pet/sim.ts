@@ -182,8 +182,15 @@ export class LiveBrain {
     return nOut
   }
 
-  /** Push neurons over threshold right now - a deterministic poke, no Poisson. */
-  kick(idx: ArrayLike<number>, mv = 1e-3) {
+  /**
+   * Push neurons over threshold right now - a deterministic poke, no Poisson.
+   *
+   * `mv` must clear the decay the very next step applies, not just the threshold:
+   * step() computes v0 + (v - v0) * A before comparing, so with these constants
+   * anything under ~0.035 mV over threshold decays back under it and never fires.
+   * 1 mV is what the Brian2 reference uses, and what every caller here passes.
+   */
+  kick(idx: ArrayLike<number>, mv = 1) {
     for (let k = 0; k < idx.length; k++) this.v[idx[k]] = this.m.v_th + mv
   }
 

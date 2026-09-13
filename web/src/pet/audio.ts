@@ -45,7 +45,7 @@ export class PetAudio {
   /** Must be called from a user gesture; browsers will not start audio otherwise. */
   async enable() {
     if (this.ctx) { await this.ctx.resume(); this.enabled = true; return }
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)() as Ctx
+    const ctx = new (window.AudioContext || window.webkitAudioContext!)() as Ctx
     this.ctx = ctx
     this.noise = noiseBuffer(ctx)
 

@@ -51,7 +51,7 @@ async function boot() {
   $('exp-count').textContent = `${manifest.experiments.length}`
 
   if (import.meta.env.DEV) {
-    ;(window as any).__fly = {
+    ;window.__fly = {
       brain, player, raster, neurons, manifest, selectNeuron, play,
       get current() { return current },
     }

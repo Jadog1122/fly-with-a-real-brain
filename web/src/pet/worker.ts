@@ -3,6 +3,17 @@
 // sends stimulus changes and receives spikes and readout rates.
 
 import { LiveBrain, type ModelConstants, type SubnetData } from './sim'
+import { loadPacked } from './packed'
+
+/** One readout group as written into public/data/pet.json by bake/13_pet_config.py. */
+interface PetReadout {
+  id: string
+  label: string
+  n: number
+  sides: { left: number[]; right: number[]; other: number[] }
+  names?: Record<string, string>
+  note?: string
+}
 
 // Typed locally rather than via `/// <reference lib="webworker" />`, which would swap
 // the DOM lib out for the whole project and break the main thread's event types.
@@ -28,22 +39,6 @@ let simMs = 0
 let acc = 0            // simulated ms owed to the clock
 let last = 0
 
-const TYPED: Record<string, any> = {
-  f32: Float32Array, u8: Uint8Array, u16: Uint16Array, u32: Uint32Array,
-  i16: Int16Array, i32: Int32Array,
-}
-
-async function loadPacked(url: string, magic: string) {
-  const buf = await (await fetch(url)).arrayBuffer()
-  const dv = new DataView(buf)
-  const got = String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3))
-  if (got !== magic) throw new Error(`${url}: expected ${magic}, got ${got}`)
-  const hl = dv.getUint32(4, true)
-  const head = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, hl)))
-  const out: any = { ...head }
-  for (const a of head.arrays) out[a.name] = new TYPED[a.type](buf, 8 + hl + a.offset, a.length)
-  return out
-}
 
 // spikes seen since the last report, and the per-readout counts over that window
 let spikeAcc: number[] = []
@@ -104,7 +99,7 @@ ctx.onmessage = async (e: MessageEvent) => {
     const sub = await loadPacked(m.subnetUrl, 'FLYS') as SubnetData
     const pet = await (await fetch(m.petUrl)).json()
     brain = new LiveBrain(sub, pet.model as ModelConstants)
-    readouts = pet.readouts.map((r: any) => ({
+    readouts = pet.readouts.map((r: PetReadout) => ({
       id: r.id,
       left: new Set<number>(r.sides.left),
       right: new Set<number>([...r.sides.right, ...r.sides.other]),

@@ -1,4 +1,8 @@
 // Loading of the baked data set.
+//
+// The payload format itself lives in pet/packed.ts - this module used to carry a
+// second copy of the parser, and the two had already drifted apart.
+import { loadPacked } from './pet/packed'
 
 export interface NeuronData {
   n: number
@@ -46,30 +50,8 @@ export interface Experiment {
   frame(k: number): Uint32Array
 }
 
-const TYPED: Record<string, any> = {
-  f32: Float32Array, u8: Uint8Array, u16: Uint16Array, u32: Uint32Array,
-  i8: Int8Array, i16: Int16Array, i32: Int32Array, i64: BigInt64Array,
-}
-
-/** Read the `MAGIC | headerLen | JSON header | typed arrays` files the bake writes. */
-async function loadPacked(url: string, magic: string): Promise<any> {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`${url}: ${res.status}`)
-  const buf = await res.arrayBuffer()
-  const dv = new DataView(buf)
-  const got = String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3))
-  if (got !== magic) throw new Error(`${url}: expected "${magic}", got "${got}"`)
-  const headLen = dv.getUint32(4, true)
-  const head = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, headLen)))
-  const base = 8 + headLen
-  const out: any = { ...head }
-  delete out.arrays
-  for (const a of head.arrays) out[a.name] = new TYPED[a.type](buf, base + a.offset, a.length)
-  return out
-}
-
 export async function loadNeurons(url: string): Promise<NeuronData> {
-  return await loadPacked(url, 'FLYN') as NeuronData
+  return await loadPacked<NeuronData>(url, 'FLYN')
 }
 
 export async function loadManifest(url: string): Promise<Manifest> {

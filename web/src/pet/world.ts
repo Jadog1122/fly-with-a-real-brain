@@ -49,7 +49,9 @@ export class World {
     if (f.y > this.h - m) { f.y = this.h - m; f.h = -f.h }
 
     f.legPhase += Math.min(Math.abs(f.speed), 200) * dt * 0.09
-    f.wing += (a.escape ? 1 : 0 - f.wing) * dt * 8
+    // wings snap open on takeoff and fold back over ~0.3 s.  This was two statements,
+    // the first of which parsed as `a.escape ? 1 : (0 - f.wing)` rather than the
+    // intended `(a.escape ? 1 : 0) - f.wing`, and was then overwritten by the second.
     f.wing = Math.max(0, Math.min(1, a.escape ? 1 : f.wing - dt * 3))
     f.startle = Math.max(0, f.startle - dt * 0.45) + (a.escape ? dt * 3 : 0)
     f.startle = Math.min(1, f.startle)

@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# a second push should cancel the run still going for the previous one
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # The engine tests replay the 45,808-neuron subnet against a committed golden.
+      # public/data is tracked, so this needs no bake step.
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npx vite build
+
+      - name: Check the built pages actually boot
+        run: |
+          npx vite preview --port 4173 --strictPort &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:4173/ >/dev/null && break
+            sleep 1
+          done
+          curl -sf -o /dev/null -w 'index.html %{http_code}\n' http://localhost:4173/
+          curl -sf -o /dev/null -w 'pet.html   %{http_code}\n' http://localhost:4173/pet.html

@@ -15,6 +15,24 @@ const BAR_TYPE: Record<string, string> = {
   escape: 'health', proboscis: 'experience', groom: 'stamina',
   forward: 'mana', backward: 'mana', turn_a: 'mana', turn_b: 'mana',
 }
+/**
+ * What each readout means in words anyone can read.  The panel used to show the raw
+ * cell name - "P9 oDN1", "MDN", "aDN1" - which is only meaningful if you already know
+ * the fly literature.  The cell name is kept, but as the footnote rather than the
+ * headline.
+ */
+const PLAIN: Record<string, { does: string; who: string }> = {
+  forward:   { does: 'Walk forwards',      who: 'P9' },
+  // Two separate steering pairs. Both really are "steer" - no functional split is
+  // claimed here beyond their being different cells.
+  turn_a:    { does: 'Steer, one pair',    who: 'DNa01' },
+  turn_b:    { does: 'Steer, other pair',  who: 'DNa02' },
+  backward:  { does: 'Walk backwards',     who: 'MDN, the "moonwalker" cells' },
+  escape:    { does: 'Jump and fly away',  who: 'the giant fibre, its fastest nerve' },
+  proboscis: { does: 'Put its tongue out', who: 'MN9' },
+  groom:     { does: 'Clean its antennae', who: 'aDN1' },
+}
+
 const POP_TONE: Record<string, string> = {
   escape: 'danger', proboscis: 'gold', groom: 'leaf', backward: 'gold',
 }
@@ -23,7 +41,7 @@ export default function App() {
   const engineRef = useRef<PetEngine | null>(null)
   const hostRef = useRef<HTMLDivElement>(null)
   const brainRef = useRef<HTMLDivElement>(null)
-  const down = useRef<{ x: number; y: number } | null>(null)
+  const down = useRef<{ x: number; y: number; touch: boolean } | null>(null)
   const [snap, setSnap] = useState<Snapshot | null>(null)
   const [picked, setPicked] = useState('sugar')
   const [brainOpen, setBrainOpen] = useState(false)
@@ -34,6 +52,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [paused, setPaused] = useState(false)
   const [autoNote, setAutoNote] = useState<string | null>(null)
+  const [showOrders, setShowOrders] = useState(false)
   const [settings, setSettings] = useState<Settings>({ ...DEFAULTS, picked: 'sugar' })
   const [boot, setBoot] = useState<BootState>(() => {
     const missing = missingFeatures()
@@ -116,11 +135,15 @@ export default function App() {
       <div
         ref={hostRef}
         className="pet-viewport"
-        onPointerDown={ev => { down.current = { x: ev.clientX, y: ev.clientY } }}
+        onPointerDown={ev => {
+          down.current = { x: ev.clientX, y: ev.clientY, touch: ev.pointerType !== 'mouse' }
+        }}
         onPointerUp={ev => {
-          // OrbitControls owns dragging, so only a click that did not move places
+          // OrbitControls owns dragging, so only a press that did not move places a
+          // token. A finger wobbles far more than a mouse, so touch gets more slack.
           const d = down.current
-          if (d && Math.hypot(ev.clientX - d.x, ev.clientY - d.y) < 5) {
+          const slack = d?.touch ? 12 : 5
+          if (d && Math.hypot(ev.clientX - d.x, ev.clientY - d.y) < slack) {
             engine?.tap(ev.clientX, ev.clientY)
           }
           down.current = null
@@ -155,6 +178,11 @@ export default function App() {
       <div className="rpg-ui-glass-panel pet-title">
         <h1>A fly with a real brain</h1>
         <p>45,808 neurons simulated live in your browser</p>
+        <button className="rpg-ui-btn pet-orders-btn"
+                aria-expanded={showOrders}
+                onClick={() => setShowOrders(v => !v)}>
+          🧠 {firing.length ? `${firing.length} firing now` : "What the brain is doing"}
+        </button>
         <div className="pet-title-row">
           <select className="rpg-ui-btn" value={speed}
                   onChange={ev => { setSpeed(ev.target.value); engine?.setSpeed(Number(ev.target.value)) }}>
@@ -183,23 +211,44 @@ export default function App() {
       </div>
 
       {/* the brain's motor output, right */}
-      <div className="rpg-ui-glass-panel pet-neurons">
-        <h2>Descending neurons</h2>
-        <p className="pet-sub">{firing.length ? `firing: ${firing.map(r => r.cell).join(', ')}` : 'all quiet'}</p>
-        {readouts.map(r => (
-          <div className="pet-neuron" key={r.id}>
-            <span className="pet-neuron-name">{r.cell}</span>
-            <div className="rpg-ui-bar" data-type={BAR_TYPE[r.id] ?? 'mana'}>
-              <div className="rpg-ui-bar-fill"
-                   style={{ width: `${Math.min(100, Math.sqrt(Math.max(r.hz, 0)) * 6.6)}%` }} />
-              <span className="rpg-ui-bar-label">{r.hz < 0.5 ? '—' : Math.round(r.hz)} Hz</span>
+      <div className={`rpg-ui-glass-panel pet-neurons${showOrders ? ' open' : ''}`}>
+        <div className="pet-neurons-head">
+          <h2>What the brain is telling the body</h2>
+          <button className="rpg-ui-btn pet-neurons-x" aria-label="Close"
+                  onClick={() => setShowOrders(false)}>✕</button>
+        </div>
+        <p className="pet-sub">
+          {firing.length
+            ? <>Right now: <b>{firing.map(r => PLAIN[r.id]?.does ?? r.cell).join(', ').toLowerCase()}</b></>
+            : 'Right now: nothing. Give it something to react to.'}
+        </p>
+
+        {readouts.map(r => {
+          const plain = PLAIN[r.id]
+          const on = r.hz >= 0.5
+          return (
+            <div className={`pet-neuron${on ? ' on' : ''}`} key={r.id}>
+              <div className="pet-neuron-top">
+                <b>{plain?.does ?? r.cell}</b>
+                <span className="pet-neuron-rate">
+                  {on ? <>{Math.round(r.hz)}<i>×/sec</i></> : <i>silent</i>}
+                </span>
+              </div>
+              <div className="rpg-ui-bar" data-type={BAR_TYPE[r.id] ?? 'mana'}>
+                <div className="rpg-ui-bar-fill"
+                     style={{ width: `${Math.min(100, Math.sqrt(Math.max(r.hz, 0)) * 6.6)}%` }} />
+              </div>
+              <span className="pet-neuron-cell">{plain?.who ?? r.cell}</span>
             </div>
-          </div>
-        ))}
+          )
+        })}
+
         <p className="pet-note">
-          These are the fly's real output neurons. The connectome stops at the neck, so what
-          it <i>does</i> is decoded from these rates. One thing is ours: a foraging drive on
-          P9 and DNa02 so it wanders. Nothing else is scripted.
+          Each bar is one small group of real nerve cells, and the number is how many
+          times a second they are firing. They are the fly&rsquo;s only way to tell its
+          body what to do &mdash; everything you see it do is read off these seven.
+          One thing is ours: a wander drive on the steering cells, so it explores.
+          Nothing else is scripted.
         </p>
       </div>
 

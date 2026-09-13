@@ -488,7 +488,16 @@ export class Scene3D {
     const b = host.getBoundingClientRect()
     if (!b.width || !b.height) return
     this.renderer.setSize(b.width, b.height)
-    this.camera.aspect = b.width / Math.max(b.height, 1)
+    const aspect = b.width / Math.max(b.height, 1)
+    this.camera.aspect = aspect
+
+    // Vertical FOV is fixed, so on a portrait phone the horizontal field collapses and
+    // the fly ends up outside the frame entirely.  Hold the *horizontal* field instead
+    // and let the vertical one open up, capped so it does not go fisheye.
+    const V = 38
+    this.camera.fov = aspect >= 1
+      ? V
+      : Math.min(76, 2 * Math.atan(Math.tan((V / 2) * Math.PI / 180) / aspect) * 180 / Math.PI)
     this.camera.updateProjectionMatrix()
     this.composer?.setSize(b.width, b.height)
   }

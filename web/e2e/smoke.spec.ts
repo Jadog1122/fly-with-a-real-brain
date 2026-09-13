@@ -77,7 +77,9 @@ test('the explorer page loads the connectome', async ({ page }) => {
   if (!(await hasWebgl2(page))) {
     await expect(page.locator('#loading')).toHaveClass(/failed/)
     await expect(page.locator('#loading-msg')).toContainText('WebGL 2')
-    expect(errors, `console errors: ${errors.join(' | ')}`).toEqual([])
+    // the page logs that same explanation on purpose; nothing else may appear
+    expect(errors.filter(e => !/missing WebGL 2/.test(e)),
+      `unexpected console errors: ${errors.join(' | ')}`).toEqual([])
     return
   }
 

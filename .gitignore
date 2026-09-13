@@ -11,3 +11,7 @@ __pycache__/
 dist/
 web/dist/
 .DS_Store
+
+# playwright
+test-results/
+playwright-report/

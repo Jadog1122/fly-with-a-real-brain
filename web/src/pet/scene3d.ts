@@ -122,6 +122,8 @@ export class Scene3D {
   private fpsTime = 0
   private fpsFrames = 0
   private lastDegrade = 0
+  /** Smoothed frames per second, for the HUD and for anyone reporting a problem. */
+  fps = 0
   /** Called when the renderer decides it has to drop a tier to keep up. */
   onDegrade: ((q: Quality) => void) | null = null
   private airborne = 0
@@ -695,17 +697,18 @@ export class Scene3D {
   }
 
   private measureFps(dt: number) {
-    if (!this.ready || this.quality === 'low') return
+    if (!this.ready) return
     if (dt > 0.2 || document.visibilityState !== 'visible') return
     this.fpsTime += dt
     this.fpsFrames++
     if (this.fpsTime < 3) return
 
     const fps = this.fpsFrames / this.fpsTime
+    this.fps = fps
     this.fpsTime = 0
     this.fpsFrames = 0
     const now = performance.now()
-    if (fps >= 24 || now - this.lastDegrade < 10_000) return
+    if (this.quality === 'low' || fps >= 24 || now - this.lastDegrade < 10_000) return
 
     this.lastDegrade = now
     this.onDegrade?.(this.quality === 'high' ? 'medium' : 'low')
@@ -794,7 +797,7 @@ export class Scene3D {
       part.geo.computeBoundingBox()
       const hgt = Math.max(0.01, part.geo.boundingBox!.max.y)
       const pm = part.mat.clone()
-      this.windify(pm, hgt, hgt * 0.16)               // the tall ones move most
+      this.windify(pm, hgt, hgt * 0.16, 210)          // tallest, moves most, fades up close
       const im = new THREE.InstancedMesh(part.geo, pm, N)
       im.castShadow = true
       for (let i = 0; i < N; i++) {
@@ -965,11 +968,12 @@ export class Scene3D {
    * sun is behind a leaf, add light proportional to how directly it is behind. Real
    * transmission needs its own render pass per frame and there are thousands of these.
    */
-  private windify(mat: THREE.Material, height: number, sway: number) {
+  private windify(mat: THREE.Material, height: number, sway: number, fadeNear = 0) {
     mat.onBeforeCompile = shader => {
       shader.uniforms.uTime = this.windTime
       shader.uniforms.uHeight = { value: height }
       shader.uniforms.uSway = { value: sway }
+      shader.uniforms.uFadeNear = { value: fadeNear }
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', `#include <common>
           uniform float uTime; uniform float uHeight; uniform float uSway;`)
@@ -984,7 +988,17 @@ export class Scene3D {
           }`)
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>
-          varying vec3 vWorldNrm;`)
+          uniform float uFadeNear;`)
+        .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+          // Foliage right in front of the lens frames the shot at mid distance and
+          // blocks it entirely up close. Dissolve it as it gets near, with a dithered
+          // discard rather than alpha so nothing has to be depth-sorted.
+          if (uFadeNear > 0.0) {
+            float dcam = length(vViewPosition);
+            float vis = smoothstep(uFadeNear * 0.35, uFadeNear, dcam);
+            float dither = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+            if (vis < dither) discard;
+          }`)
         .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
           {
             // sun behind the surface, seen through it
@@ -997,7 +1011,7 @@ export class Scene3D {
     // One cache key for every windy material, not one per height. Height and sway are
     // uniforms, so they can differ per material while all of them share a single
     // compiled program - keying on the values compiled twenty near-identical shaders.
-    mat.customProgramCacheKey = () => 'windy'
+    mat.customProgramCacheKey = () => 'windy' + (fadeNear > 0 ? 'F' : '')
   }
 
   private occluders: THREE.Object3D[] = []
@@ -1052,15 +1066,20 @@ export class Scene3D {
     this.composer = null
     if (q === 'low') return
 
-    const b = this.renderer.domElement
-    const w = b.width || 1, h = b.height || 1
+    // Sizes here are CSS pixels, not drawing-buffer pixels. EffectComposer.setSize
+    // multiplies by the pixel ratio itself, so feeding it domElement.width (which is
+    // already scaled) built a target twice too big in each axis and the frame ended up
+    // letterboxed into a band with dead space above and below. Only visible on a
+    // device with a pixel ratio above 1, which is every phone.
+    const size = this.renderer.getSize(new THREE.Vector2())
+    const dpr = this.renderer.getPixelRatio()
+    const w = Math.max(1, size.x), h = Math.max(1, size.y)
 
-    // EffectComposer builds its own render target, and its default has samples: 0.
-    // So switching post-processing on silently turned anti-aliasing OFF - the
-    // renderer's own antialias flag only applies when drawing straight to the canvas,
-    // which meant high quality had jaggier edges than low. Give it a multisampled
-    // target of our own.
-    const target = new THREE.WebGLRenderTarget(w, h, {
+    // EffectComposer's own default target has samples: 0, so switching post-processing
+    // on silently turned anti-aliasing OFF - the renderer's antialias flag only applies
+    // when drawing straight to the canvas. Give it a multisampled target instead. This
+    // one is in buffer pixels, since it is the actual allocation.
+    const target = new THREE.WebGLRenderTarget(w * dpr, h * dpr, {
       type: THREE.HalfFloatType,
       samples: q === 'high' ? 4 : 2,
     })
@@ -1082,7 +1101,7 @@ export class Scene3D {
                             radius: 4, radiusExponent: 1, rings: 2, samples: 16 })
       c.addPass(ao)
 
-      const bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.55, 0.65, 0.78)
+      const bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.55, 0.65, 0.78)   // CSS px, resized by setSize
       c.addPass(bloom)   // threshold high: only the sunlit highlights, not the whole meadow
     }
 

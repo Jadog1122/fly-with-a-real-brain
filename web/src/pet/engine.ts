@@ -23,7 +23,7 @@ export interface PopView {
 export interface Snapshot {
   ready: boolean
   hunger: number; startle: number; fed: number; doing: string; eating: boolean
-  simMs: number; stepsPerSec: number; realtime: number
+  simMs: number; stepsPerSec: number; realtime: number; fps: number
   readouts: ReadoutView[]
   pops: PopView[]
   brainNote: string
@@ -412,7 +412,7 @@ export class PetEngine {
       hunger: this.world.fly.hunger, startle: this.world.fly.startle,
       fed: this.world.fly.fed, doing: action.dominant,
       eating: (this.world.fly.eating ?? 0) > 0,
-      simMs: this.simMs, stepsPerSec: this.stepsPerSec,
+      simMs: this.simMs, stepsPerSec: this.stepsPerSec, fps: this.scene?.fps ?? 0,
       realtime: this.stepsPerSec / 10000,
       readouts, pops: this.pops, brainNote: this.brainNote,
       autoQuality: this.autoQuality,

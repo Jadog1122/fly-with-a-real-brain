@@ -173,7 +173,10 @@ export default function App() {
         </div>
         <div className="pet-doing">
           <b>{snap?.doing ?? '…'}</b>
-          <i>{snap ? `${Math.round(snap.stepsPerSec).toLocaleString()} steps/s` : 'waking up'}</i>
+          <i>{snap
+            ? `${Math.round(snap.stepsPerSec).toLocaleString()} steps/s${
+                snap.fps ? ` · ${Math.round(snap.fps)} fps` : ''}`
+            : 'waking up'}</i>
         </div>
       </div>
 

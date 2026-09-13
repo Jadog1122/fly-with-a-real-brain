@@ -14,10 +14,37 @@ function collectErrors(page: Page) {
 
 // Each of these boots a 45,808-neuron simulation, so they are deliberately few and
 // coarse: the question is whether the app runs on this engine at all, not what it does.
+//
+// Some CI engines have no WebGL at all - headless Firefox on Linux ships no software
+// renderer - and there the correct behaviour is the friendly "this browser can't run
+// it" message, not a working world. So each test asks the browser what it can do and
+// then checks the right outcome. That makes the unsupported path real coverage on a
+// real engine rather than something only ever seen in jsdom.
+
+/** Does this browser actually give us a WebGL2 context? */
+async function hasWebgl2(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    try {
+      return !!document.createElement('canvas').getContext('webgl2')
+    } catch {
+      return false
+    }
+  })
+}
 
 test('the pet page boots the brain, runs it and renders the world', async ({ page }) => {
   const errors = collectErrors(page)
   await page.goto('/pet.html')
+
+  if (!(await hasWebgl2(page))) {
+    // the unsupported path: a card naming what is missing, and no crash
+    const card = page.locator('.pet-boot')
+    await expect(card).toBeVisible()
+    await expect(card).toContainText(/can.t run it/i)
+    await expect(card).toContainText('WebGL 2')
+    expect(errors, `console errors: ${errors.join(' | ')}`).toEqual([])
+    return
+  }
 
   // the boot overlay must clear, rather than settle on the error card
   await expect(page.locator('.pet-boot')).toHaveCount(0, { timeout: 60_000 })
@@ -46,6 +73,13 @@ test('the pet page boots the brain, runs it and renders the world', async ({ pag
 test('the explorer page loads the connectome', async ({ page }) => {
   const errors = collectErrors(page)
   await page.goto('/')
+
+  if (!(await hasWebgl2(page))) {
+    await expect(page.locator('#loading')).toHaveClass(/failed/)
+    await expect(page.locator('#loading-msg')).toContainText('WebGL 2')
+    expect(errors, `console errors: ${errors.join(' | ')}`).toEqual([])
+    return
+  }
 
   await expect(page.locator('#loading')).toHaveClass(/gone/, { timeout: 60_000 })
   await expect(page.locator('#loading')).not.toHaveClass(/failed/)

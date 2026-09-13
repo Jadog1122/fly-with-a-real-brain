@@ -20,7 +20,22 @@ export default defineConfig({
   use: { baseURL: 'http://localhost:4180', trace: 'retain-on-failure' },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    {
+      name: 'firefox',
+      use: {
+        ...devices['Desktop Firefox'],
+        // headless Firefox on Linux ships no software WebGL; ask for it so the real
+        // path gets exercised where possible. The tests below still branch on what the
+        // browser actually reports, because this does not always take.
+        launchOptions: {
+          firefoxUserPrefs: {
+            'webgl.disabled': false,
+            'webgl.force-enabled': true,
+            'gfx.webrender.all': true,
+          },
+        },
+      },
+    },
     // Playwright's bundled WebKit segfaults on launch on this macOS host (Darwin 25),
     // before any page is created, so it is only actually exercised by CI on Linux.
     // `npm run test:e2e:local` skips it; CI runs all three.

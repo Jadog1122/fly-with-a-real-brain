@@ -223,3 +223,7 @@ button.ghost.on { border-color: var(--accent); color: var(--accent); }
   #app { grid-template-columns: 1fr; grid-template-areas: "stage" "transport"; }
   #side { display: none; }
 }
+
+/* a failed boot used to leave the spinner turning forever behind the message */
+#loading.failed .spinner { display: none; }
+#loading.failed #loading-msg { color: var(--hot); max-width: 440px; text-align: center; line-height: 1.55; }

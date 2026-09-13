@@ -79,16 +79,34 @@ export class PetEngine {
   private brainNote = ''
   picked: StimKind = STIMULI[0]
 
+  /** Set by boot(); anything that kills the simulation after start-up lands here. */
+  private onError: (e: Error) => void = e => console.error('[pet]', e)
+
   constructor() {
     this.worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
     this.worker.onmessage = (e: MessageEvent) => this.onWorker(e.data)
+    // a worker that throws used to fail silently, leaving a world that never moves
+    this.worker.onerror = e => this.onError(new Error(e.message || 'the simulation worker stopped'))
+    this.worker.onmessageerror = () => this.onError(new Error('the simulation sent a message that could not be read'))
   }
 
-  async boot(host: HTMLElement, emit: (s: Snapshot) => void) {
+  async boot(host: HTMLElement, emit: (s: Snapshot) => void, onError?: (e: Error) => void) {
     this.host = host
     this.emit = emit
+    if (onError) this.onError = onError
     this.scene = new Scene3D(host, this.world)
-    const pet = await (await fetch('data/pet.json')).json()
+    // A missing config used to surface as "Unexpected token '<'". Status alone is not
+    // enough to catch it: a dev server answers unknown paths with index.html at 200,
+    // so the HTML only fails later, at the parse.
+    const petRes = await fetch('data/pet.json')
+    if (!petRes.ok) throw new Error(`data/pet.json: HTTP ${petRes.status} ${petRes.statusText}`)
+    const petText = await petRes.text()
+    let pet
+    try {
+      pet = JSON.parse(petText)
+    } catch {
+      throw new Error('data/pet.json is missing or is not JSON - has the bake been run?')
+    }
     for (const s of pet.sensors) this.groups.set(s.id, s as SensorGroup)
     for (const r of pet.readouts) {
       const first = (Object.values(r.names as Record<string, string>)[0] ?? r.label) as string

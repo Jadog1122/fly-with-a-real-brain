@@ -135,7 +135,10 @@ export class Scene3D {
     fx.filter = 'blur(23px)'
     fx.fillStyle = '#fff'
     fx.beginPath()
-    fx.roundRect(22, 22, 212, 212, 58)
+    // roundRect only landed in Safari 16.4; a plain rect through the same blur still
+    // feathers the edge, it just loses the rounded corners
+    if (typeof fx.roundRect === 'function') fx.roundRect(22, 22, 212, 212, 58)
+    else fx.rect(30, 30, 196, 196)
     fx.fill()
     const dirt = new THREE.Mesh(
       new THREE.PlaneGeometry(this.world.w - 10, this.world.h - 10),

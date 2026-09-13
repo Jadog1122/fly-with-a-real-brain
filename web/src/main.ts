@@ -1,4 +1,5 @@
 import './style.css'
+import { missingFeatures } from './support'
 import { Brain } from './brain'
 import { Player } from './player'
 import { Raster } from './raster'
@@ -307,7 +308,18 @@ function loop(now: number) {
   requestAnimationFrame(loop)
 }
 
-boot().catch(err => {
-  console.error(err)
-  $('loading-msg').textContent = `failed: ${err.message}`
-})
+function stop(msg: string) {
+  console.error('[explorer]', msg)
+  $('loading').classList.add('failed')       // hides the spinner; it kept spinning
+  $('loading-msg').textContent = msg
+}
+
+// Checked before boot so an unsupported browser gets a sentence rather than a
+// three.js exception behind a spinner that never stops.
+const missing = missingFeatures()
+if (missing.length) {
+  stop(`This browser is missing ${missing.map(m => m.name).join(' and ')}. `
+     + 'A current Chrome, Edge, Firefox or Safari 16.4+ will work.')
+} else {
+  boot().catch(err => stop(err instanceof Error ? err.message : String(err)))
+}

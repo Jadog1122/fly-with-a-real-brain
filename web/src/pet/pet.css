@@ -99,3 +99,27 @@ html, body { background: var(--rpg-ui-body-bg, #17100a); }
   .pet-title { width: auto; padding: 9px 11px; }
   .pet-title h1, .pet-title p { display: none }
 }
+
+/* Boot, unsupported-browser and crash states.  Before these, a failed boot left a
+   black page with the reason only in the console. */
+.pet-boot {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(120% 90% at 50% 40%, rgba(38, 27, 16, .72), rgba(12, 8, 4, .93));
+}
+.pet-boot-card { max-width: 400px; padding: 22px 24px; text-align: center; }
+.pet-boot-card h2 { margin: 0 0 6px; font-size: 17px; }
+.pet-boot-card p { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; opacity: .8; }
+.pet-boot-card ul { margin: 0 0 10px; padding-left: 18px; text-align: left; font-size: 12px; line-height: 1.6; }
+.pet-boot-card b { color: var(--rpg-ui-accent); }
+.pet-boot-hint { font-size: 11.5px; opacity: .62; }
+.pet-boot-card .rpg-ui-btn { margin-top: 4px; }
+.pet-boot-spin {
+  width: 26px; height: 26px; margin: 2px auto 12px; border-radius: 50%;
+  border: 3px solid rgba(226, 186, 118, .22); border-top-color: var(--rpg-ui-accent);
+  animation: pet-spin .9s linear infinite;
+}
+@keyframes pet-spin { to { transform: rotate(360deg) } }
+@media (prefers-reduced-motion: reduce) {
+  .pet-boot-spin { animation-duration: 2.4s }
+}

@@ -6,6 +6,8 @@ import '@rpgjs/ui-css/index.css'
 import './theme.css'
 import { PetEngine, type Snapshot } from './engine'
 import type { StimKind } from './sensors'
+import { BootOverlay, type BootState } from './BootOverlay'
+import { missingFeatures } from '../support'
 
 const BAR_TYPE: Record<string, string> = {
   escape: 'health', proboscis: 'experience', groom: 'stamina',
@@ -26,16 +28,28 @@ export default function App() {
   const [speed, setSpeed] = useState('1')
   const [sound, setSound] = useState(false)
   const [overview, setOverview] = useState(false)
+  const [boot, setBoot] = useState<BootState>(() => {
+    const missing = missingFeatures()
+    return missing.length ? { kind: 'unsupported', missing } : { kind: 'loading' }
+  })
 
   useEffect(() => {
+    // nothing below will work without these, and failing here gives a readable reason
+    // instead of a WebGL exception and a black page
+    if (missingFeatures().length) return
+
     const e = new PetEngine()
     engineRef.current = e
     let timer = 0, pending: Snapshot | null = null
-    const flush = () => { if (pending) setSnap(pending); pending = null; timer = 0 }
+    const flush = () => {
+      if (pending) { setSnap(pending); setBoot({ kind: 'ready' }) }
+      pending = null; timer = 0
+    }
     e.boot(hostRef.current!, s => {
       pending = s
       if (!timer) timer = window.setTimeout(flush, 50)
-    }).catch(err => console.error('[pet] boot failed', err))
+    }, err => setBoot({ kind: 'error', err }))
+      .catch(err => setBoot({ kind: 'error', err: err instanceof Error ? err : new Error(String(err)) }))
     if (import.meta.env.DEV) window.__pet = { engine: e }
     const key = (ev: KeyboardEvent) => {
       const t = ev.target as HTMLElement | null
@@ -176,6 +190,8 @@ export default function App() {
         <p className="pet-sub">{snap?.brainNote || '138,639 neurons'}</p>
         <div ref={brainRef} className="pet-brainhost" />
       </div>
+
+      <BootOverlay state={boot} onRetry={() => location.reload()} />
 
       {(snap?.pops ?? []).map(p => (
         <span key={p.key} className={`pet-pop tone-${POP_TONE[p.tone] ?? 'plain'}`}

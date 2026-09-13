@@ -275,13 +275,43 @@ export class Scene3D {
     if (typeof fx.roundRect === 'function') fx.roundRect(22, 22, 212, 212, 58)
     else fx.rect(30, 30, 196, 196)
     fx.fill()
-    const dirt = new THREE.Mesh(
-      new THREE.PlaneGeometry(this.world.w - 10, this.world.h - 10),
-      new THREE.MeshStandardMaterial({
-        color: 0x8a7350, roughness: 1, transparent: true, depthWrite: false,
-        alphaMap: new THREE.CanvasTexture(fade),
-        map: dirtTex, roughnessMap: dirtTex,
-      }))
+    const dirtGeo = new THREE.PlaneGeometry(this.world.w - 10, this.world.h - 10)
+    // aoMap reads uv1, which PlaneGeometry does not have
+    dirtGeo.setAttribute('uv1', dirtGeo.attributes.uv)
+    const dirtMat = new THREE.MeshStandardMaterial({
+      color: 0xbfb09a, roughness: 1, transparent: true, depthWrite: false,
+      alphaMap: new THREE.CanvasTexture(fade),
+      map: dirtTex, roughnessMap: dirtTex,
+    })
+    const dirt = new THREE.Mesh(dirtGeo, dirtMat)
+
+    // Real wet-mud-and-leaf-litter PBR (Poly Haven brown_mud_leaves_01, CC0) in place
+    // of the procedural mottling, which was only ever a patch over a flat colour.
+    // Loaded after first paint; the mottled version stands in until it lands.
+    const tl = new THREE.TextureLoader()
+    const aniso = this.renderer.capabilities.getMaxAnisotropy()
+    const setup = (t: THREE.Texture, srgb: boolean) => {
+      t.wrapS = t.wrapT = THREE.RepeatWrapping
+      t.repeat.set(9, 6)
+      // A ground-level camera sees the floor at a very grazing angle, where without
+      // anisotropic filtering the texture smears into mush a few units out.
+      t.anisotropy = aniso
+      if (srgb) t.colorSpace = THREE.SRGBColorSpace
+      return t
+    }
+    Promise.all([
+      tl.loadAsync('tex/ground_diff.jpg'),
+      tl.loadAsync('tex/ground_nor.jpg'),
+      tl.loadAsync('tex/ground_arm.jpg'),
+    ]).then(([diff, nor, arm]) => {
+      dirtMat.map = setup(diff, true)
+      dirtMat.normalMap = setup(nor, false)
+      dirtMat.normalScale.set(1.4, 1.4)
+      dirtMat.aoMap = setup(arm, false)
+      dirtMat.roughnessMap = arm        // green channel
+      dirtMat.color.setHex(0xffffff)    // the albedo carries the colour now
+      dirtMat.needsUpdate = true
+    }).catch(() => { /* the procedural stand-in is a fine fallback */ })
     dirt.rotation.set(-Math.PI / 2, 0, 0)
     dirt.position.set(this.world.w / 2, .6, this.world.h / 2)
     dirt.receiveShadow = true
@@ -435,6 +465,7 @@ export class Scene3D {
       }
     }
     await this.buildInstances()
+    this.addWaterAndDew(r)
     this.ready = true
   }
 
@@ -670,6 +701,123 @@ export class Scene3D {
   }
 
   /** Pull back to see the whole arena, or drop back in behind the fly. */
+  private water: THREE.Mesh | null = null
+  private rippleA: THREE.Texture | null = null
+  private rippleB: THREE.Texture | null = null
+
+  /**
+   * A ripple normal map, summed from a few sine waves. Two copies of it scrolled in
+   * different directions and at different speeds is the standard cheap way to get
+   * water that never visibly repeats.
+   */
+  private makeRipple(): THREE.Texture {
+    const N = 256
+    const c = document.createElement('canvas')
+    c.width = c.height = N
+    const ctx = c.getContext('2d')!
+    const img = ctx.createImageData(N, N)
+    const hgt = (x: number, y: number) => {
+      let h = 0
+      for (const [fx, fy, a] of [[3, 2, 1], [-2, 5, .6], [7, -3, .35], [5, 9, .2]]) {
+        h += Math.sin((x / N * fx + y / N * fy) * Math.PI * 2) * a
+      }
+      return h
+    }
+    for (let y = 0; y < N; y++) {
+      for (let x = 0; x < N; x++) {
+        // central difference of the height field gives the surface normal
+        const dx = hgt(x + 1, y) - hgt(x - 1, y)
+        const dy = hgt(x, y + 1) - hgt(x, y - 1)
+        const nx = -dx * 0.5, ny = -dy * 0.5, nz = 1
+        const l = Math.hypot(nx, ny, nz)
+        const i = (y * N + x) * 4
+        img.data[i] = (nx / l * 0.5 + 0.5) * 255
+        img.data[i + 1] = (ny / l * 0.5 + 0.5) * 255
+        img.data[i + 2] = (nz / l * 0.5 + 0.5) * 255
+        img.data[i + 3] = 255
+      }
+    }
+    ctx.putImageData(img, 0, 0)
+    const t = new THREE.CanvasTexture(c)
+    t.wrapS = t.wrapT = THREE.RepeatWrapping
+    return t
+  }
+
+  /**
+   * A shallow puddle and the dew on the ground around it. Both exist for the same
+   * reason: at this scale water is the thing that catches the sun, and a bright
+   * specular glint is what sells "wet" far more than any amount of darkened albedo.
+   */
+  private addWaterAndDew(r: () => number) {
+    const { w, h } = this.world
+
+    // an irregular blob rather than a disc - a round puddle reads as a dinner plate
+    const geo = new THREE.CircleGeometry(150, 64)
+    const pos = geo.attributes.position as THREE.BufferAttribute
+    for (let i = 1; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i)
+      const a = Math.atan2(y, x)
+      const k = 1 + Math.sin(a * 3) * 0.18 + Math.sin(a * 5 + 1.7) * 0.12 + Math.sin(a * 9) * 0.06
+      pos.setXY(i, x * k, y * k * 0.62)
+    }
+    geo.computeVertexNormals()
+
+    this.rippleA = this.makeRipple()
+    this.rippleB = this.makeRipple()
+    this.rippleA.repeat.set(3, 3)
+    this.rippleB.repeat.set(5, 5)
+
+    const mat = new THREE.MeshPhysicalMaterial({
+      color: 0x10161a, roughness: 0.04, metalness: 0,
+      transparent: true, opacity: 0.82,
+      normalMap: this.rippleA, normalScale: new THREE.Vector2(0.22, 0.22),
+      envMapIntensity: 2.4,          // the sun glint is the whole point
+      clearcoat: 1, clearcoatRoughness: 0.03,
+    })
+    this.water = new THREE.Mesh(geo, mat)
+    this.water.rotation.x = -Math.PI / 2
+    this.water.position.set(w * 0.62, 1.1, h * 0.44)
+    this.water.renderOrder = 1
+    this.scene.add(this.water)
+
+    // Dew. Instanced, and deliberately not using transmission: that needs its own
+    // render pass per frame and at this count it would cost more than the whole rest
+    // of the scene. A near-mirror sphere against the captured sky reads the same at
+    // this size - what you actually see of a 0.2 mm droplet is one bright highlight.
+    const drop = new THREE.SphereGeometry(1, 8, 6)
+    // Nearly invisible except where it catches the sun. At opacity 0.55 with a strong
+    // environment these read as solid white balls, because a near-mirror sphere
+    // reflects the whole bright sky across its surface - the opposite of a droplet,
+    // which is transparent with one small specular highlight.
+    const dropMat = new THREE.MeshPhysicalMaterial({
+      color: 0xc8dae8, roughness: 0.03, metalness: 0,
+      transparent: true, opacity: 0.2, depthWrite: false,
+      envMapIntensity: 0.9, clearcoat: 1, clearcoatRoughness: 0,
+    })
+    const N = 300
+    const dew = new THREE.InstancedMesh(drop, dropMat, N)
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3()
+    const v = new THREE.Vector3()
+    for (let i = 0; i < N; i++) {
+      // clustered near the puddle, thinning out across the rest of the ground
+      const near = r() < 0.55
+      const cx = near ? this.water.position.x : w / 2
+      const cz = near ? this.water.position.z : h / 2
+      const spread = near ? 230 : 420
+      v.set(cx + (r() + r() - 1) * spread, 1.6 + r() * 2.4, cz + (r() + r() - 1) * spread * 0.7)
+      v.x = Math.max(30, Math.min(w - 30, v.x))
+      v.z = Math.max(30, Math.min(h - 30, v.z))
+      const sz = 0.8 + r() * 1.9
+      // beaded, not spherical: surface tension flattens a droplet against the ground
+      sc.set(sz, sz * 0.72, sz)
+      m.compose(v, q, sc)
+      dew.setMatrixAt(i, m)
+    }
+    dew.instanceMatrix.needsUpdate = true
+    dew.computeBoundingSphere()
+    this.scene.add(dew)
+  }
+
   private particleCap = 120
   private placements = new Map<string, {
     x: number; y: number; z: number
@@ -839,6 +987,13 @@ export class Scene3D {
     const f = this.world.fly
 
     this.measureFps(dt)
+    if (this.rippleA && this.rippleB) {
+      // two layers drifting apart, so the surface never visibly tiles or loops
+      this.rippleA.offset.x += dt * 0.013
+      this.rippleA.offset.y += dt * 0.009
+      this.rippleB.offset.x -= dt * 0.008
+      this.rippleB.offset.y += dt * 0.017
+    }
     this.airborne += ((action.escape ? 1 : 0) - this.airborne) * Math.min(1, dt * 7)
 
     // Ground contact, as dust.  Everything here is driven by decoded behaviour, so the

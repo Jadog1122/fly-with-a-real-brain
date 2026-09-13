@@ -118,6 +118,8 @@ export class Scene3D {
   })
   private footCooldown = 0
   private wasAirborne = 0
+  private prevAlt = 0
+  private airCooldown = 0
 
   // adaptive quality
   private quality: Quality = 'high'
@@ -1179,6 +1181,10 @@ export class Scene3D {
     const d = Math.sqrt(dx * dx + dy * dy + dz * dz)
     const u = this.bokeh.uniforms as Record<string, { value: number }>
     u.focus.value += (d - u.focus.value) * 0.25     // eased, or it snaps while orbiting
+    // Focus narrows with speed. A shallower plane at pace is how a long lens reads
+    // velocity, and it keeps the eye on the fly exactly when it is hardest to follow.
+    const rush = Math.min(1, this.world.fly.speed / 150) * this.world.fly.flying
+    u.aperture.value = 0.00008 * (1 + rush * 1.6)
   }
 
   /**
@@ -1332,12 +1338,43 @@ export class Scene3D {
     // Ground contact, as dust.  Everything here is driven by decoded behaviour, so the
     // fly kicks up dirt for the same reason it walks.
     if (this.particleCap > 40) {                 // low quality skips this entirely
-      const A = this.airborne, W = this.wasAirborne
+      const A = this.airborne, W = this.wasFlying
+      // Descent rate at the moment of contact, from the altitude itself - maath keeps
+      // the spring's velocity privately, so it is derived here rather than read.
+      const fall = Math.max(0, (this.prevAlt - f.alt) / Math.max(dt, 1e-4))
+      this.prevAlt = f.alt
+
       if (A > .35 && W <= .35) {                 // takeoff
         this.spawnSparks(f.x, f.y)
         this.spawnPuff(f.x, f.y, 7, 150, 70, 3.4)
-      } else if (A < .25 && W >= .25) {          // landing
-        this.spawnPuff(f.x, f.y, 6, 110, 45, 3.0)
+      } else if (f.alt < 3 && this.wasAirborne >= 3) {
+        // Landing, scaled by how hard it came down. A touchdown and a crash used to
+        // throw exactly the same puff.
+        // fall is a rate, units per second, not a per-frame delta - a 3-unit drop in
+        // one frame is already 180/s. Against a 140 divisor every landing saturated
+        // and a drift-down threw the same dust as a crash. The spring brings it down
+        // from cruise at roughly 400/s, so that is what full impact should mean.
+        const hard = Math.min(1, fall / 520)
+        this.spawnPuff(f.x, f.y, 4 + Math.round(hard * 9), 70 + hard * 120,
+                       30 + hard * 60, 2.4 + hard * 2.2)
+        if (hard > 0.45) this.kick(hard * 0.4)
+      }
+      this.wasAirborne = f.alt
+
+      // Turbulence: motes shed into the air behind a flying fly. Nothing at this scale
+      // moves through air without disturbing it, and in flight there is otherwise no
+      // contact with anything to show speed against.
+      if (f.flying > 0.3) {
+        this.airCooldown -= dt
+        if (this.airCooldown <= 0) {
+          const back = f.h + Math.PI
+          this.spawnPuff(f.x + Math.cos(back) * 14, f.y + Math.sin(back) * 14,
+                         1, 22, 8, 1.1)
+          // placed at the fly's height rather than on the ground
+          const last = this.particles[this.particles.length - 1]
+          if (last) last.mesh.position.y = f.alt + (Math.random() - .5) * 10
+          this.airCooldown = 0.07
+        }
       }
       this.footCooldown -= dt
       if (this.footCooldown <= 0) {
@@ -1352,7 +1389,6 @@ export class Scene3D {
           this.footCooldown = .1
         }
       }
-      this.wasAirborne = A
     }
     // Altitude, plus a small bob locked to the wingbeat: a fly in the air is never
     // still vertically, and without it the flight reads as a slide along a rail.

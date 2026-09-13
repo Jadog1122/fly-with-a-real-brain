@@ -375,7 +375,7 @@ export class PetEngine {
     this.audio.update({
       speed: this.world.fly.speed, escape: action.escape,
       eating: (this.world.fly.eating ?? 0) > 0, legPhase: this.world.fly.legPhase,
-      groom: action.groom,
+      groom: action.groom, flying: this.world.fly.flying,
     })
 
     // threshold crossings become damage numbers

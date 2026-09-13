@@ -1097,6 +1097,8 @@ export class Scene3D {
    * bound during play.
    */
   private windTime = { value: 0 }
+  /** xyz = where the fly is, w = how hard it is pressing down. Shared by every plant. */
+  private downwash = { value: new THREE.Vector4(0, 1e6, 0, 0) }
 
   /**
    * Plants sway; pebbles do not. Matched on the kit's own file names.
@@ -1122,9 +1124,11 @@ export class Scene3D {
       shader.uniforms.uHeight = { value: height }
       shader.uniforms.uSway = { value: sway }
       shader.uniforms.uFadeNear = { value: fadeNear }
+      shader.uniforms.uFly = this.downwash
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', `#include <common>
-          uniform float uTime; uniform float uHeight; uniform float uSway;`)
+          uniform float uTime; uniform float uHeight; uniform float uSway;
+          uniform vec4 uFly;`)
         .replace('#include <begin_vertex>', `#include <begin_vertex>
           {
             vec3 ip = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
@@ -1133,6 +1137,20 @@ export class Scene3D {
             float k = pow(clamp(transformed.y / uHeight, 0.0, 1.0), 1.7) * uSway;
             transformed.x += gust * k;
             transformed.z += gust * k * 0.55;
+
+            // Downwash. A fly passing low pushes air straight down, and the grass
+            // under it lies away from the column. Falls off with horizontal distance
+            // and with how high the fly is, so it only bites when it is genuinely
+            // low overhead.
+            if (uFly.w > 0.001) {
+              vec3 away = ip - uFly.xyz;
+              float near = smoothstep(105.0, 14.0, length(away.xz));
+              float low = smoothstep(150.0, 20.0, abs(uFly.y - ip.y));
+              float press = uFly.w * near * low;
+              vec2 dir = normalize(away.xz + vec2(0.0001, 0.0001));
+              transformed.xz += dir * press * k * 11.0;
+              transformed.y -= press * k * 3.0;
+            }
           }`)
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>
@@ -1364,6 +1382,9 @@ export class Scene3D {
       this.rippleB.offset.y += dt * 0.017
     }
     this.windTime.value += dt
+    // Only while airborne and low; on the ground the fly displaces nothing.
+    const dw = this.downwash.value
+    dw.set(f.x, f.alt, f.y, f.flying * Math.max(0, 1 - f.alt / 150))
     // The world owns the flight now, so the renderer follows it rather than easing its
     // own copy off the escape flag.
     this.airborne = f.flying

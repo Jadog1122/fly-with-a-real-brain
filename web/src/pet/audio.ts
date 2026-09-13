@@ -142,19 +142,27 @@ export class PetAudio {
   }
 
   /** Called every simulation tick with the current state. */
-  update(o: { speed: number; escape: boolean; eating: boolean; legPhase: number; groom: number }) {
+  update(o: {
+    speed: number; escape: boolean; eating: boolean; legPhase: number; groom: number
+    /** 0..1, how airborne it actually is - not the momentary escape command. */
+    flying: number
+  }) {
     if (!this.ctx || !this.enabled) return
     const t = this.ctx.currentTime
 
     // wings only while airborne; on the ground you hear feet, not wings
-    const wing = o.escape ? 0.16 : 0
+    // Keyed to flight, not to the escape command. The Giant Fibre fires for a moment
+    // and the flight lasts seconds, so keying the wingbeat to the command cut the
+    // sound off with the fly still in the air. It also fades in and out with the
+    // flight rather than switching, so takeoff and landing are audible as such.
+    const wing = 0.16 * o.flying
     this.wingGain.gain.setTargetAtTime(wing, t, 0.04)
-    this.wingOsc.frequency.setTargetAtTime(o.escape ? 200 : 150, t, 0.08)
+    this.wingOsc.frequency.setTargetAtTime(150 + o.flying * 50, t, 0.08)
     this.wingFilter.frequency.setTargetAtTime(420 + o.speed * 1.6, t, 0.1)
 
     // footfalls follow the leg cycle the renderer already animates
     const half = Math.floor(o.legPhase / Math.PI)
-    if (!o.escape && Math.abs(o.speed) > 4 && half !== this.lastStep) {
+    if (o.flying < 0.2 && Math.abs(o.speed) > 4 && half !== this.lastStep) {   // no footfalls in mid-air
       this.lastStep = half
       this.step(Math.min(0.05, 0.012 + Math.abs(o.speed) * 0.0004))
     }

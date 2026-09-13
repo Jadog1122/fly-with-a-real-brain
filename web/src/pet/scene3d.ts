@@ -361,7 +361,16 @@ export class Scene3D {
             const m = o as THREE.Mesh
             m.castShadow = true; m.receiveShadow = true
             const mat = m.material as THREE.MeshStandardMaterial
-            if (mat) { mat.roughness = .92; mat.metalness = 0 }
+            if (mat) {
+              // Everything is wet. Wet stone is near-glossy and noticeably darker;
+              // wet foliage is damp rather than shiny. A uniform 0.92 roughness made
+              // the whole scene read as dry chalk whatever the lighting did.
+              const stone = /^(Pebble|Rock)/.test(file)
+              mat.roughness = stone ? 0.34 : 0.72
+              mat.metalness = 0
+              mat.envMapIntensity = stone ? 1.5 : 1.0
+              if (stone) mat.color.multiplyScalar(0.72)   // water darkens what it soaks
+            }
           }
         })
         this.cache.set(file, g.scene)
@@ -754,6 +763,7 @@ export class Scene3D {
       mossMat.needsUpdate = true
     }).catch(() => { /* the flat green stands in */ })
 
+    const mossTops: { x: number; y: number; z: number; r: number }[] = []
     const wx = this.water ? this.water.position.x : w * 0.62
     const wz = this.water ? this.water.position.z : h * 0.44
     for (let i = 0; i < 9; i++) {
@@ -777,6 +787,86 @@ export class Scene3D {
       m.castShadow = true
       this.scene.add(m)
       this.occluders.push(m)                          // solid: the camera should avoid it
+      mossTops.push({ x: m.position.x, y: m.position.y, z: m.position.z, r: rad })
+    }
+
+    // Dew beads on the moss as well as on the ground. In the reference photographs
+    // this is most of what you actually see of the water - droplets caught on the
+    // cushions, each one a single bright highlight.
+    if (mossTops.length) {
+      const bead = new THREE.SphereGeometry(1, 8, 6)
+      const beadMat = new THREE.MeshPhysicalMaterial({
+        color: 0xc8dae8, roughness: 0.03, metalness: 0,
+        transparent: true, opacity: 0.24, depthWrite: false,
+        envMapIntensity: 1.1, clearcoat: 1, clearcoatRoughness: 0,
+      })
+      const COUNT = 260
+      const beads = new THREE.InstancedMesh(bead, beadMat, COUNT)
+      const bm = new THREE.Matrix4(), bq = new THREE.Quaternion(), bs = new THREE.Vector3()
+      const bv = new THREE.Vector3()
+      for (let i = 0; i < COUNT; i++) {
+        const c = mossTops[(r() * mossTops.length) | 0]
+        // a point on the dome, so the beads sit on the surface rather than inside it
+        const th = r() * Math.PI * 2, ph = r() * Math.PI * 0.4
+        bv.set(c.x + Math.sin(ph) * Math.cos(th) * c.r * 0.95,
+               c.y + Math.cos(ph) * c.r * 0.37 + 1.2,
+               c.z + Math.sin(ph) * Math.sin(th) * c.r * 0.95)
+        const sz = 0.7 + r() * 1.5
+        bs.set(sz, sz * 0.8, sz)
+        bm.compose(bv, bq, bs)
+        beads.setMatrixAt(i, bm)
+      }
+      beads.instanceMatrix.needsUpdate = true
+      beads.computeBoundingSphere()
+      this.scene.add(beads)
+    }
+
+    // Fallen leaves. The kit's petals are the right shape but far too small to read
+    // as leaf litter at this scale, so the same geometry goes down much larger, laid
+    // almost flat, tilted every which way and tinted through autumn browns. Each one
+    // is a distinct object at fly scale - something to walk under.
+    const leafFiles = ['Petal_1', 'Petal_2', 'Petal_3', 'Clover_2']
+    const LEAF_TINTS = [0x8a5a28, 0xa8763a, 0x6b4420, 0xb08948, 0x7d5c2e]
+    for (const lf of leafFiles) {
+      const lproto = proto.get(lf)
+      if (!lproto) continue
+      lproto.updateMatrixWorld(true)
+      const lparts: { geo: THREE.BufferGeometry; mat: THREE.Material; local: THREE.Matrix4 }[] = []
+      lproto.traverse(o => {
+        const me = o as THREE.Mesh
+        if (me.isMesh) lparts.push({ geo: me.geometry, mat: me.material as THREE.Material,
+                                     local: me.matrixWorld.clone() })
+      })
+      const LN = 16
+      const lm = new THREE.Matrix4(), lq = new THREE.Quaternion()
+      const le = new THREE.Euler(), lv = new THREE.Vector3(), ls = new THREE.Vector3()
+      for (const part of lparts) {
+        const pm = (part.mat as THREE.MeshStandardMaterial).clone()
+        pm.color.setHex(LEAF_TINTS[(r() * LEAF_TINTS.length) | 0])
+        pm.roughness = 0.62            // damp, not dry
+        pm.side = THREE.DoubleSide     // seen from underneath as often as above
+        // No sway - a fallen leaf is not attached to anything - but the same
+        // near-camera dissolve. Making these occluders had the camera shoving itself
+        // around to avoid litter lying flat on the floor, and pressing right up
+        // against one whenever the fly walked near it.
+        this.windify(pm, 1, 0, 170)
+        const im = new THREE.InstancedMesh(part.geo, pm, LN)
+        im.castShadow = true
+        im.receiveShadow = true
+        for (let i = 0; i < LN; i++) {
+          lv.set(70 + r() * (w - 140), 1.4 + r() * 3, 70 + r() * (h - 140))
+          // nearly flat, but curled up at an angle - a dried leaf never lies true
+          le.set((r() - .5) * 0.7, r() * Math.PI * 2, (r() - .5) * 0.7)
+          lq.setFromEuler(le)
+          const k = S * (0.9 + r() * 1.1)
+          ls.set(k, k * (0.7 + r() * 0.5), k)
+          lm.compose(lv, lq, ls).multiply(part.local)
+          im.setMatrixAt(i, lm)
+        }
+        im.instanceMatrix.needsUpdate = true
+        im.computeBoundingSphere()
+        this.scene.add(im)
+      }
     }
 
     // Tall blades arcing in from the edges of frame.
@@ -1044,10 +1134,21 @@ export class Scene3D {
   private composer: EffectComposer | null = null
   private bokeh: BokehPass | null = null
 
-  /** Keep the focal plane on whatever the camera is orbiting - normally the fly. */
+  /**
+   * Focus on the fly itself, not on the orbit target.
+   *
+   * The target deliberately lags behind the fly so the camera moves smoothly, which
+   * meant the focal plane sat tens of units behind the subject - and at this aperture
+   * that is enough to blur the one thing you are meant to be looking at. Measured at
+   * 57 units of lag, with the fly at 210 and the focus easing toward 171.
+   */
   private updateFocus() {
     if (!this.bokeh) return
-    const d = this.camera.position.distanceTo(this.camTarget)
+    const f = this.world.fly
+    const dx = this.camera.position.x - f.x
+    const dy = this.camera.position.y - 26
+    const dz = this.camera.position.z - f.y
+    const d = Math.sqrt(dx * dx + dy * dy + dz * dz)
     const u = this.bokeh.uniforms as Record<string, { value: number }>
     u.focus.value += (d - u.focus.value) * 0.25     // eased, or it snaps while orbiting
   }

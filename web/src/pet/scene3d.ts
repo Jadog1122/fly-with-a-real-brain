@@ -220,11 +220,8 @@ export class Scene3D {
       const [file, mul] = WALL[i % WALL.length]
       const proto = await this.load(file).catch(() => null)
       if (!proto) continue
-      const o = proto.clone(true)
-      o.position.set(ring[i][0], -14, ring[i][1])
-      o.rotation.y = r() * Math.PI * 2
-      o.scale.setScalar(S * mul * (0.95 + r() * 0.45))
-      this.scene.add(o)
+      this.place(file, ring[i][0], -14, ring[i][1],
+                 0, r() * Math.PI * 2, 0, S * mul * (0.95 + r() * 0.45), true)
     }
 
     // a close skirt of tall planting just beyond the kerb
@@ -238,13 +235,10 @@ export class Scene3D {
         const out = 26 + r() * 150
         const nx = px < w / 2 ? -1 : 1, nz = pz < h / 2 ? -1 : 1
         const edgeX = Math.min(px, w - px) < Math.min(pz, h - pz)
-        const o = proto.clone(true)
-        o.position.set(px + (edgeX ? nx * out : (r() - .5) * 60),
-                       -6,
-                       pz + (edgeX ? (r() - .5) * 60 : nz * out))
-        o.rotation.y = r() * Math.PI * 2
-        o.scale.setScalar(S * mul * (0.8 + r() * 0.6))
-        this.scene.add(o)
+        const sx = px + (edgeX ? nx * out : (r() - .5) * 60)
+        const sz = pz + (edgeX ? (r() - .5) * 60 : nz * out)
+        this.place(file, sx, -6, sz, 0, r() * Math.PI * 2, 0,
+                   S * mul * (0.8 + r() * 0.6), true)
       }
     }
 
@@ -262,11 +256,8 @@ export class Scene3D {
           const inside = x > -40 && x < w + 40 && z > -40 && z < h + 40
           if (!inside) break
         }
-        const o = proto.clone(true)
-        o.position.set(x, 0, z)
-        o.rotation.y = r() * Math.PI * 2
-        o.scale.setScalar(S * mul * (0.9 + r() * 0.7))
-        this.scene.add(o)
+        this.place(file, x, 0, z, 0, r() * Math.PI * 2, 0,
+                   S * mul * (0.9 + r() * 0.7), true)
       }
     }
     // Litter on the bare earth: without it the arena floor reads as a paved road.
@@ -288,7 +279,6 @@ export class Scene3D {
       if (!proto) continue
       const petal = file.startsWith('Petal')
       for (let i = 0; i < count; i++) {
-        const o = proto.clone(true)
         let x: number, z: number
         if (r() < .72) {                        // most pieces belong to a drift
           const [cx, cz] = drifts[(r() * drifts.length) | 0]
@@ -298,17 +288,89 @@ export class Scene3D {
           x = 60 + r() * (w - 120)
           z = 60 + r() * (h - 120)
         }
-        // the dirt sits at y 0.6, so petals rest on it and pebbles sink a little
-        o.position.set(Math.max(45, Math.min(w - 45, x)), petal ? .75 : .42,
-                       Math.max(45, Math.min(h - 45, z)))
-        o.rotation.set((r() - .5) * .55, r() * Math.PI * 2, (r() - .5) * .55)
-        o.scale.setScalar(S * mul * (0.6 + r() * 0.8))
-        // a pebble with no shadow floats; petals lie flat enough not to need one
-        o.traverse(m => { (m as THREE.Mesh).castShadow = !petal })
-        this.scene.add(o)
+        // the dirt sits at y 0.6, so petals rest on it and pebbles sink a little.
+        // A pebble with no shadow floats; petals lie flat enough not to need one.
+        this.place(file,
+                   Math.max(45, Math.min(w - 45, x)), petal ? .75 : .42,
+                   Math.max(45, Math.min(h - 45, z)),
+                   (r() - .5) * .55, r() * Math.PI * 2, (r() - .5) * .55,
+                   S * mul * (0.6 + r() * 0.8), !petal)
       }
     }
+    await this.buildInstances()
     this.ready = true
+  }
+
+  /**
+   * Record where a prop goes instead of cloning it. Scenery, the kerb, the skirt and
+   * the litter are all static, and the kit reuses 49 geometries across 374 objects, so
+   * they are merged into InstancedMeshes once placement is finished.
+   */
+  private place(file: string, x: number, y: number, z: number,
+                rx: number, ry: number, rz: number, s: number, shadow: boolean) {
+    let list = this.placements.get(file)
+    if (!list) this.placements.set(file, list = [])
+    list.push({ x, y, z, rx, ry, rz, s, shadow })
+  }
+
+  /**
+   * One InstancedMesh per (prototype part, shadow flag). The split on shadow is
+   * needed because castShadow is a property of the object, not of an instance, and
+   * petals deliberately do not cast one.
+   */
+  private async buildInstances() {
+    const mat4 = new THREE.Matrix4()
+    const quat = new THREE.Quaternion()
+    const euler = new THREE.Euler()
+    const pos = new THREE.Vector3()
+    const scl = new THREE.Vector3()
+
+    for (const [file, list] of this.placements) {
+      const proto = await this.load(file).catch(() => null)
+      if (!proto) continue
+
+      // The old code overwrote the clone's root transform, so the prototype root's own
+      // transform was never applied. Zero it here to keep the layout identical.
+      proto.position.set(0, 0, 0)
+      proto.rotation.set(0, 0, 0)
+      proto.scale.setScalar(1)
+      proto.updateMatrixWorld(true)
+
+      const parts: { geo: THREE.BufferGeometry; mat: THREE.Material; local: THREE.Matrix4 }[] = []
+      proto.traverse(o => {
+        const mesh = o as THREE.Mesh
+        if (mesh.isMesh) {
+          parts.push({ geo: mesh.geometry, mat: mesh.material as THREE.Material,
+                       local: mesh.matrixWorld.clone() })
+        }
+      })
+      if (!parts.length) continue
+
+      for (const shadow of [true, false]) {
+        const subset = list.filter(pl => pl.shadow === shadow)
+        if (!subset.length) continue
+        for (const part of parts) {
+          const im = new THREE.InstancedMesh(part.geo, part.mat, subset.length)
+          im.castShadow = shadow
+          im.receiveShadow = true
+          for (let i = 0; i < subset.length; i++) {
+            const pl = subset[i]
+            euler.set(pl.rx, pl.ry, pl.rz)
+            quat.setFromEuler(euler)
+            pos.set(pl.x, pl.y, pl.z)
+            scl.setScalar(pl.s)
+            mat4.compose(pos, quat, scl).multiply(part.local)
+            im.setMatrixAt(i, mat4)
+          }
+          im.instanceMatrix.needsUpdate = true
+          // without this the bounds are one instance's, and the whole batch pops in
+          // and out of view as the camera turns
+          im.computeBoundingSphere()
+          this.scene.add(im)
+        }
+      }
+    }
+    this.placements.clear()
   }
 
   private resize(host: HTMLElement) {
@@ -371,6 +433,11 @@ export class Scene3D {
 
   /** Pull back to see the whole arena, or drop back in behind the fly. */
   private particleCap = 120
+  private placements = new Map<string, {
+    x: number; y: number; z: number
+    rx: number; ry: number; rz: number
+    s: number; shadow: boolean
+  }[]>()
 
   /**
    * The three knobs worth turning. Resolution dominates fill cost, shadows dominate

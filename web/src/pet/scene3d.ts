@@ -8,6 +8,15 @@
 
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { Sky } from 'three/examples/jsm/objects/Sky.js'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
+import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js'
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
+import { VignetteShader } from 'three/examples/jsm/shaders/VignetteShader.js'
+import { BrightnessContrastShader } from 'three/examples/jsm/shaders/BrightnessContrastShader.js'
 import type { Quality } from './save'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { Fly3D } from './fly3d'
@@ -103,26 +112,105 @@ export class Scene3D {
     this.renderer.toneMappingExposure = 1.08
     host.appendChild(this.renderer.domElement)
 
-    this.scene.background = new THREE.Color(0x9fd0ea)
-    this.scene.fog = new THREE.Fog(0x9fd0ea, 620, 1500)
-
     this.camera = new THREE.PerspectiveCamera(38, 1, 10, 4000)
 
-    // warm sun, cool sky bounce
-    this.key = new THREE.DirectionalLight(0xfff0d8, 2.5)
+    // The sky was a flat fill colour. This is three's own Sky - a Rayleigh/Mie
+    // scattering dome - so the horizon actually warms and the zenith deepens, and the
+    // sun sits where the key light is rather than being implied.
+    const sky = new Sky()
+    sky.scale.setScalar(20000)
+    const u = sky.material.uniforms
+    u.turbidity.value = 4.5          // haze: low, so the meadow keeps its colour
+    u.rayleigh.value = 1.6           // how blue the sky gets away from the sun
+    u.mieCoefficient.value = 0.006
+    u.mieDirectionalG.value = 0.8    // tightness of the glow around the sun
+    const SUN = new THREE.Vector3(380, 620, 260).normalize()
+    u.sunPosition.value.copy(SUN)
+    this.scene.add(sky)
+
+    // Light the scene from that same sky rather than from a guessed ambient colour:
+    // PMREM turns the dome into an environment map, which is what gives the props
+    // their bounce and their sky-tinted shadow side.
+    const pmrem = new THREE.PMREMGenerator(this.renderer)
+    pmrem.compileEquirectangularShader()
+    const skyRT = pmrem.fromScene(sky as unknown as THREE.Scene)
+    this.scene.environment = skyRT.texture
+    this.scene.environmentIntensity = 0.26   // enough to tint the shade, not to flatten it
+    pmrem.dispose()
+
+    // Fog tinted to the sky's horizon, not to the old flat blue, or distant grass
+    // reads as a different colour from the sky behind it.
+    this.scene.fog = new THREE.Fog(0xb4d3e6, 780, 1700)
+
+    // warm sun
+    this.key = new THREE.DirectionalLight(0xfff0d8, 2.7)
     this.key.position.set(380, 620, 260)
     this.key.castShadow = true
     this.key.shadow.mapSize.set(2048, 2048)
     const d = 620
     Object.assign(this.key.shadow.camera, { left: -d, right: d, top: d, bottom: -d, near: 60, far: 1800 })
     this.key.shadow.bias = -0.0012
+    this.key.shadow.normalBias = 1.2   // stops thin grass blades shadow-acneing themselves
     this.scene.add(this.key, this.key.target)
-    this.scene.add(new THREE.HemisphereLight(0xbfe4ff, 0x4a6b3a, 1.15))
 
-    // ground
+    // A cool fill from the opposite side, so the shadow side of a prop is modelled
+    // rather than flat. Half the key's intensity and no shadow of its own.
+    const fill = new THREE.DirectionalLight(0xbcd8ff, 0.34)
+    fill.position.set(-320, 260, -420)
+    this.scene.add(fill)
+
+    // Ground bounce only - the sky half of this is now doing its job through the
+    // environment map, so the hemisphere light is much weaker than it was.
+    this.scene.add(new THREE.HemisphereLight(0xbfe4ff, 0x5a7b42, 0.22))
+
+    // Ground.  Both surfaces were a single flat colour over a very large area, which
+    // reads as paper however good the lighting is.  The Quaternius kit is flat-shaded
+    // and has no tileable ground texture to borrow, and bolting a normal map onto a
+    // faceted kit would fight its style - so this is low-frequency mottling only:
+    // enough value variation to break the flatness, no surface detail that pretends
+    // the ground is photographic.
+    const mottle = (cells: number, contrast: number) => {
+      const c = document.createElement('canvas')
+      c.width = c.height = 256
+      const g = c.getContext('2d')!
+      g.fillStyle = '#808080'
+      g.fillRect(0, 0, 256, 256)
+      // a few octaves of soft blobs, wrapped by drawing each one nine times
+      for (let oct = 0; oct < 3; oct++) {
+        const n = cells * (oct + 1) * 3
+        const rad = 150 / (oct + 1)
+        g.globalAlpha = contrast / (oct + 1.4)   // contrast is now ~0.2, not ~0.6
+        for (let i = 0; i < n; i++) {
+          const x = Math.random() * 256, y = Math.random() * 256
+          // near-grey, not black and white: the map multiplies the base colour, so a
+          // full-range blob reads as scorched ground rather than as uneven soil
+          const v = Math.random() < .5 ? 112 : 146
+          for (const [dx, dy] of [[0, 0], [256, 0], [-256, 0], [0, 256], [0, -256],
+                                  [256, 256], [-256, -256], [256, -256], [-256, 256]]) {
+            const grd = g.createRadialGradient(x + dx, y + dy, 0, x + dx, y + dy, rad)
+            grd.addColorStop(0, `rgba(${v},${v},${v},1)`)
+            grd.addColorStop(1, `rgba(${v},${v},${v},0)`)
+            g.fillStyle = grd
+            g.beginPath(); g.arc(x + dx, y + dy, rad, 0, 6.2832); g.fill()
+          }
+        }
+      }
+      g.globalAlpha = 1
+      const t = new THREE.CanvasTexture(c)
+      t.wrapS = t.wrapT = THREE.RepeatWrapping
+      t.colorSpace = THREE.SRGBColorSpace
+      return t
+    }
+
+    const grassTex = mottle(5, 0.22)
+    grassTex.repeat.set(7, 7)
+    const dirtTex = mottle(7, 0.26)
+    dirtTex.repeat.set(6, 6)
+
     const ground = new THREE.Mesh(
       new THREE.CircleGeometry(1300, 64),
-      new THREE.MeshStandardMaterial({ color: 0x6f9c4a, roughness: .96 }))
+      new THREE.MeshStandardMaterial({ color: 0x6f9c4a, roughness: .96,
+                                       map: grassTex, roughnessMap: grassTex }))
     ground.rotation.x = -Math.PI / 2
     ground.position.set(this.world.w / 2, 0, this.world.h / 2)
     ground.receiveShadow = true
@@ -146,6 +234,7 @@ export class Scene3D {
       new THREE.MeshStandardMaterial({
         color: 0x8a7350, roughness: 1, transparent: true, depthWrite: false,
         alphaMap: new THREE.CanvasTexture(fade),
+        map: dirtTex, roughnessMap: dirtTex,
       }))
     dirt.rotation.set(-Math.PI / 2, 0, 0)
     dirt.position.set(this.world.w / 2, .6, this.world.h / 2)
@@ -379,6 +468,7 @@ export class Scene3D {
     this.renderer.setSize(b.width, b.height)
     this.camera.aspect = b.width / Math.max(b.height, 1)
     this.camera.updateProjectionMatrix()
+    this.composer?.setSize(b.width, b.height)
   }
 
   /** Keep the 3-D tokens in sync with the arena's stimulus list. */
@@ -444,6 +534,55 @@ export class Scene3D {
    * the extra geometry pass, and particles are the only thing that grows without
    * bound during play.
    */
+  private composer: EffectComposer | null = null
+
+  /**
+   * Post-processing, rebuilt per quality tier.
+   *
+   * The ambient-occlusion pass is the one that matters visually: every prop cast a
+   * directional shadow already, but nothing darkened where it met the ground, so
+   * pebbles and grass tufts read as floating. AO is what seats them.
+   *
+   * Low skips the composer entirely and renders straight to the screen.
+   */
+  private buildComposer(q: Quality) {
+    this.composer?.dispose()
+    this.composer = null
+    if (q === 'low') return
+
+    const b = this.renderer.domElement
+    const w = b.width || 1, h = b.height || 1
+    const c = new EffectComposer(this.renderer)
+    c.setSize(w, h)
+    c.addPass(new RenderPass(this.scene, this.camera))
+
+    if (q === 'high') {
+      const ao = new GTAOPass(this.scene, this.camera, w, h)
+      ao.output = GTAOPass.OUTPUT.Default
+      // the arena is ~760 units across and the props are small, so the sampling
+      // radius is in tens of units, not the single-digit default
+      ao.updateGtaoMaterial({ radius: 18, distanceExponent: 1.4, thickness: 12,
+                              scale: 1.1, samples: 12 })
+      c.addPass(ao)
+
+      const bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.22, 0.7, 0.92)
+      c.addPass(bloom)   // threshold high: only the sunlit highlights, not the whole meadow
+    }
+
+    const grade = new ShaderPass(BrightnessContrastShader)
+    grade.uniforms.brightness.value = 0.01
+    grade.uniforms.contrast.value = 0.10
+    c.addPass(grade)
+
+    const vignette = new ShaderPass(VignetteShader)
+    vignette.uniforms.offset.value = 1.05
+    vignette.uniforms.darkness.value = 0.85
+    c.addPass(vignette)
+
+    c.addPass(new OutputPass())   // tone mapping and colour space, once, at the end
+    this.composer = c
+  }
+
   setQuality(q: Quality) {
     const dpr = devicePixelRatio || 1
     if (q === 'low') {
@@ -468,6 +607,7 @@ export class Scene3D {
     while (this.particles.length > this.particleCap) {
       this.scene.remove(this.particles.shift()!.mesh)
     }
+    this.buildComposer(q)
   }
 
   setOverview(on: boolean) {
@@ -558,6 +698,7 @@ export class Scene3D {
     this.key.target.position.copy(this.camTarget)
     this.key.position.set(this.camTarget.x + 380, 620, this.camTarget.z + 260)
 
-    this.renderer.render(this.scene, this.camera)
+    if (this.composer) this.composer.render()
+    else this.renderer.render(this.scene, this.camera)
   }
 }

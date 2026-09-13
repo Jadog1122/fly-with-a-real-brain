@@ -572,12 +572,29 @@ export class Scene3D {
     this.camera.aspect = aspect
 
     // Vertical FOV is fixed, so on a portrait phone the horizontal field collapses and
-    // the fly ends up outside the frame entirely.  Hold the *horizontal* field instead
-    // and let the vertical one open up, capped so it does not go fisheye.
+    // the fly ends up outside the frame. Hold the horizontal field instead and let the
+    // vertical one open up, capped so it does not go fisheye.
     const V = 38
-    this.camera.fov = aspect >= 1
+    const fov = aspect >= 1
       ? V
       : Math.min(76, 2 * Math.atan(Math.tan((V / 2) * Math.PI / 180) / aspect) * 180 / Math.PI)
+
+    // Opening the field up is only half of it. At a fixed distance a 73-degree
+    // portrait view showed 677 world units of height, so the fly filled 12% of the
+    // frame instead of 40 - small and far enough that its walking was not visible at
+    // all, which is what "the fly is stuck" actually was. Pull the camera in by the
+    // same factor so the subject keeps its size on screen whatever the aspect.
+    const k = Math.tan((V / 2) * Math.PI / 180) / Math.tan((fov / 2) * Math.PI / 180)
+    if (Math.abs(k - this.framingK) > 1e-4) {
+      const rescale = k / this.framingK
+      const dir = new THREE.Vector3().subVectors(this.camera.position, this.camTarget)
+      this.camera.position.copy(this.camTarget).addScaledVector(dir, rescale)
+      this.camDist *= rescale
+      this.controls.minDistance = 95 * k
+      this.controls.maxDistance = 1400 * k
+      this.framingK = k
+    }
+    this.camera.fov = fov
     this.camera.updateProjectionMatrix()
     this.composer?.setSize(b.width, b.height)
   }
@@ -1107,6 +1124,8 @@ export class Scene3D {
   private occluders: THREE.Object3D[] = []
   private ray = new THREE.Raycaster()
   private camDist = 300
+  /** Distance multiplier that keeps the subject the same size across aspect ratios. */
+  private framingK = 1
 
   /**
    * Third-person camera collision. At ground level inside a meadow the camera spends

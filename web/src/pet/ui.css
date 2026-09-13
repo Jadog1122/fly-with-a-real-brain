@@ -1,0 +1,165 @@
+/* ---------------------------------------------------------------------------
+   The interface primitives.
+
+   This replaces @rpgjs/ui-css, whose look - bevelled wood panels, double
+   borders, inset highlights, uppercase letter-spaced labels, glossy gradient
+   bars - is the thing that dated the game. The class names are unchanged, so
+   no component had to be rewritten.
+   
+   Everything below is built on Open Props (MIT), an open-source design-token
+   set: its shadow ramp, easing curves and radii, rather than numbers invented
+   here. The palette is the one thing chosen for this project.
+   --------------------------------------------------------------------------- */
+
+/* Open Props is imported from App.tsx - shadows, easings and borders only - because
+   Vite's PostCSS cannot resolve a bare package specifier inside an @import. */
+
+@import '../tokens.css';
+
+.rpg-ui-app, .pet-root {
+  font-family: var(--ui-font);
+  color: var(--ui-text);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ------------------------------------------------------------------ panels */
+.rpg-ui-glass-panel, .rpg-ui-hud {
+  background: var(--ui-surface);
+  backdrop-filter: var(--ui-blur);
+  -webkit-backdrop-filter: var(--ui-blur);
+  border: 1px solid var(--ui-hairline);
+  border-radius: var(--ui-r-lg);
+  box-shadow: var(--shadow-5);
+}
+.rpg-ui-hud {
+  position: absolute; top: 20px; left: 20px; z-index: 20;
+  display: flex; align-items: center; gap: 14px; padding: 12px 16px;
+}
+
+/* ----------------------------------------------------------------- buttons */
+.rpg-ui-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 7px 13px;
+  font: inherit; font-size: 12.5px; font-weight: 500; letter-spacing: -0.005em;
+  color: var(--ui-text);
+  background: var(--ui-raised);
+  border: 1px solid var(--ui-hairline);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background .16s var(--ui-ease), border-color .16s var(--ui-ease),
+              transform .12s var(--ui-ease);
+}
+.rpg-ui-btn:hover { background: oklch(38% 0.016 75 / 0.7); border-color: oklch(100% 0 0 / 0.16); }
+.rpg-ui-btn:active { transform: scale(0.97); }
+.rpg-ui-btn:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
+.rpg-ui-btn.on {
+  background: var(--ui-accent-dim);
+  border-color: oklch(80% 0.14 75 / 0.45);
+  color: var(--ui-accent);
+}
+select.rpg-ui-btn { appearance: none; padding-right: 13px; }
+
+/* ------------------------------------------------------------------ avatar */
+.rpg-ui-avatar {
+  position: relative; flex: none;
+  width: var(--rpg-ui-avatar-size, 44px); height: var(--rpg-ui-avatar-size, 44px);
+  display: grid; place-items: center;
+  font-size: calc(var(--rpg-ui-avatar-size, 44px) * 0.52);
+  background: var(--ui-raised);
+  border: 1px solid var(--ui-hairline);
+  border-radius: 14px;
+}
+.rpg-ui-avatar-level {
+  position: absolute; right: -5px; bottom: -5px;
+  min-width: 19px; height: 19px; padding: 0 5px;
+  display: grid; place-items: center;
+  font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
+  color: var(--ui-bg); background: var(--ui-accent);
+  border-radius: 999px;
+}
+
+/* -------------------------------------------------------------------- bars */
+.rpg-ui-status-bars { display: flex; flex-direction: column; gap: 7px; width: var(--rpg-ui-status-bars-width, 190px); }
+.rpg-ui-status-bar, .rpg-ui-bar {
+  position: relative;
+  height: 8px; border-radius: 999px;
+  background: oklch(100% 0 0 / 0.08);
+}
+/* NOT overflow:hidden - the label sits above the track and would be clipped. The
+   fill is inset and rounded, so it stays inside the track without it. */
+.rpg-ui-bar { overflow: hidden; }
+.rpg-ui-status-bar-fill, .rpg-ui-bar-fill {
+  position: absolute; inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: var(--ui-accent);
+  transition: width .3s var(--ui-ease);
+}
+/* the label rides beside the bar now, not inside an 8px trough */
+.rpg-ui-status-bar-label {
+  position: absolute; left: 0; top: -16px;
+  font-size: 11px; font-weight: 500; color: var(--ui-dim); letter-spacing: -0.005em;
+}
+.rpg-ui-status-bar { margin-top: 16px; }
+.rpg-ui-status-bar-fill[data-type='health'] { background: var(--ui-warn); }
+.rpg-ui-status-bar-fill[data-type='mana']   { background: var(--ui-good); }
+.rpg-ui-bar[data-type='health'] .rpg-ui-bar-fill      { background: var(--ui-bad); }
+.rpg-ui-bar[data-type='mana'] .rpg-ui-bar-fill        { background: var(--ui-good); }
+.rpg-ui-bar[data-type='experience'] .rpg-ui-bar-fill  { background: var(--ui-accent); }
+.rpg-ui-bar[data-type='stamina'] .rpg-ui-bar-fill     { background: oklch(76% 0.12 200); }
+
+/* -------------------------------------------------------------------- dock */
+.rpg-ui-dock {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: 22px; z-index: 22;
+  display: flex; gap: 8px; padding: 8px;
+  background: var(--ui-surface);
+  backdrop-filter: var(--ui-blur);
+  -webkit-backdrop-filter: var(--ui-blur);
+  border: 1px solid var(--ui-hairline);
+  border-radius: 20px;
+  box-shadow: var(--shadow-5);
+}
+.rpg-ui-dock-slot {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  width: 66px; height: 58px; padding: 0;
+  font: inherit; color: var(--ui-dim);
+  background: transparent; border: 1px solid transparent; border-radius: 14px;
+  cursor: pointer;
+  transition: background .16s var(--ui-ease), color .16s var(--ui-ease);
+}
+.rpg-ui-dock-slot:hover { background: oklch(100% 0 0 / 0.06); color: var(--ui-text); }
+.rpg-ui-dock-slot.active {
+  background: var(--ui-accent-dim); color: var(--ui-accent);
+  border-color: oklch(80% 0.14 75 / 0.35);
+}
+.rpg-ui-dock-slot:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
+.rpg-ui-dock-slot-qty {
+  position: absolute; top: 5px; right: 8px;
+  font-size: 11px; color: var(--ui-accent);
+}
+
+/* --------------------------------------------------------------------- fab */
+.rpg-ui-fab {
+  width: var(--rpg-ui-fab-size, 54px); height: var(--rpg-ui-fab-size, 54px);
+  display: grid; place-items: center;
+  background: var(--ui-raised);
+  backdrop-filter: var(--ui-blur);
+  -webkit-backdrop-filter: var(--ui-blur);
+  border: 1px solid var(--ui-hairline);
+  border-radius: 50%;
+  box-shadow: var(--shadow-4);
+  cursor: pointer;
+  transition: transform .16s var(--ui-ease), background .16s var(--ui-ease);
+}
+.rpg-ui-fab:hover { background: oklch(38% 0.016 75 / 0.75); transform: scale(1.05); }
+.rpg-ui-fab:active { transform: scale(0.96); }
+.rpg-ui-fab:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 3px; }
+
+/* the float used by the damage numbers */
+@keyframes rpg-float {
+  0%   { opacity: 0; transform: translate(-50%, 6px) scale(.9) }
+  18%  { opacity: 1; transform: translate(-50%, -4px) scale(1) }
+  100% { opacity: 0; transform: translate(-50%, -46px) scale(1) }
+}

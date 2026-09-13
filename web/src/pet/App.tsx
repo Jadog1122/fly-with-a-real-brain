@@ -2,8 +2,11 @@
 // Every panel, bar, dock slot and button is a @rpgjs/ui-css primitive; theme.css
 // retints that library's tokens to the meadow's palette without rewriting its CSS.
 import { useEffect, useRef, useState } from 'react'
-import '@rpgjs/ui-css/index.css'
-import './theme.css'
+// Only the token groups this UI uses, not the whole of Open Props
+import 'open-props/shadows'
+import 'open-props/easings'
+import 'open-props/borders'
+import './ui.css'
 import { PetEngine, type Snapshot } from './engine'
 import type { StimKind } from './sensors'
 import { BootOverlay, type BootState } from './BootOverlay'

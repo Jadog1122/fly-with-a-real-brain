@@ -19,7 +19,7 @@
     "test:e2e:local": "playwright test --project=chromium --project=firefox"
   },
   "dependencies": {
-    "@rpgjs/ui-css": "^5.0.0-beta.27",
+    "open-props": "^1.7.23",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "three": "^0.169.0"

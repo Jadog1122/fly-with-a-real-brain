@@ -1,0 +1,35 @@
+/* The product's palette and design tokens, shared by both pages.
+
+   It lived inside the pet's ui.css, which is how the explorer drifted onto a
+   different look twice. One file, imported by both. */
+
+:root {
+  /* One neutral surface ramp with a slight warm tint, and a single accent.
+     No gradients on chrome: modern depth comes from blur and a hairline. */
+  --ui-bg:            oklch(19% 0.012 75);
+  --ui-surface:       oklch(24% 0.013 75 / 0.72);
+  --ui-surface-solid: oklch(22% 0.013 75);
+  --ui-raised:        oklch(31% 0.015 75 / 0.6);
+  --ui-hairline:      oklch(100% 0 0 / 0.09);
+  --ui-hairline-soft: oklch(100% 0 0 / 0.055);
+
+  --ui-text:          oklch(97% 0.008 85);
+  --ui-dim:           oklch(97% 0.008 85 / 0.62);
+  --ui-faint:         oklch(97% 0.008 85 / 0.38);
+
+  --ui-accent:        oklch(80% 0.14 75);
+  --ui-accent-dim:    oklch(80% 0.14 75 / 0.16);
+  --ui-good:          oklch(78% 0.15 145);
+  --ui-warn:          oklch(80% 0.15 60);
+  --ui-bad:           oklch(68% 0.18 25);
+
+  --ui-r-sm: var(--radius-2);
+  --ui-r:    var(--radius-3);
+  --ui-r-lg: 18px;
+  --ui-blur: blur(24px) saturate(170%);
+  --ui-ease: var(--ease-3);
+
+  --ui-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --ui-num: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+}
+

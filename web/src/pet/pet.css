@@ -3,7 +3,7 @@
 
 html, body, #root { height: 100%; margin: 0; overflow: hidden; }
 /* the canvas covers this, but any letterbox should be bark, not pure black */
-html, body { background: var(--rpg-ui-body-bg, #17100a); }
+html, body { background: var(--ui-bg); }
 
 .pet-root { position: fixed; inset: 0; overflow: hidden; }
 .pet-viewport { position: absolute; inset: 0; }
@@ -33,7 +33,7 @@ html, body { background: var(--rpg-ui-body-bg, #17100a); }
 .pet-neurons h2 { margin: 0; font-size: 13px; line-height: 1.35; }
 .pet-neurons-x { display: none; padding: 2px 7px; font-size: 12px; line-height: 1; flex: none; }
 .pet-sub { margin: 4px 0 11px; font-size: 11.5px; opacity: .72; line-height: 1.45; }
-.pet-sub b { color: var(--rpg-ui-accent); font-weight: 700; }
+.pet-sub b { color: var(--ui-accent); font-weight: 700; }
 
 .pet-neuron { margin-bottom: 9px; opacity: .55; transition: opacity .25s ease; }
 .pet-neuron.on { opacity: 1; }
@@ -43,13 +43,13 @@ html, body { background: var(--rpg-ui-body-bg, #17100a); }
 }
 .pet-neuron-top b { font-size: 12.5px; font-weight: 600; }
 .pet-neuron-rate {
-  font-size: 12.5px; font-weight: 700; color: var(--rpg-ui-accent);
+  font-size: 12.5px; font-weight: 700; color: var(--ui-accent);
   font-variant-numeric: tabular-nums; flex: none;
 }
-.pet-neuron-rate i { font-size: 10px; font-style: normal; opacity: .6; margin-left: 1px; }
+.pet-neuron-rate i { font-size: 11px; font-style: normal; opacity: .6; margin-left: 1px; }
 .pet-neuron:not(.on) .pet-neuron-rate { color: inherit; opacity: .45; font-weight: 400; }
 .pet-neuron .rpg-ui-bar { height: 9px; }
-.pet-neuron-cell { display: block; margin-top: 3px; font-size: 10.5px; opacity: .45; }
+.pet-neuron-cell { display: block; margin-top: 4px; font-size: 11px; opacity: .42; }
 .pet-note { margin: 10px 0 0; font-size: 11px; line-height: 1.55; opacity: .62; }
 
 .pet-legend {
@@ -60,7 +60,7 @@ html, body { background: var(--rpg-ui-body-bg, #17100a); }
   margin: 0 0 2px; font-size: 11px; letter-spacing: .07em; text-transform: uppercase;
   opacity: .6; font-weight: 700;
 }
-.pet-legend b { font-weight: 700; color: var(--rpg-ui-accent); }
+.pet-legend b { font-weight: 700; color: var(--ui-accent); }
 .pet-legend span { opacity: .82; }
 
 .rpg-ui-dock-slot { flex-direction: column; gap: 2px; width: 78px; height: 68px; cursor: pointer; }
@@ -91,21 +91,6 @@ html, body { background: var(--rpg-ui-body-bg, #17100a); }
 .pet-pop.tone-gold   { color: #ffcf5e }
 .pet-pop.tone-leaf   { color: #a9e06a }
 .pet-pop.tone-plain  { color: #ffe9c4 }
-
-/* the library hard-codes these four bar colours; retint only, to match the meadow */
-.rpg-ui-bar[data-type="health"] .rpg-ui-bar-fill {
-  background: linear-gradient(180deg, #ff8a5c 0%, #b8391c 100%); box-shadow: 0 0 8px #ff8a5c;
-}
-.rpg-ui-bar[data-type="mana"] .rpg-ui-bar-fill {
-  background: linear-gradient(180deg, #9ad45f 0%, #40761f 100%); box-shadow: 0 0 8px #9ad45f;
-}
-.rpg-ui-bar[data-type="experience"] .rpg-ui-bar-fill {
-  background: linear-gradient(180deg, #ffd063 0%, #c07f14 100%); box-shadow: 0 0 8px #ffd063;
-}
-/* was teal - the only cool colour left on screen; grooming is a sage green now */
-.rpg-ui-bar[data-type="stamina"] .rpg-ui-bar-fill {
-  background: linear-gradient(180deg, #cfe08a 0%, #7e9436 100%); box-shadow: 0 0 8px #cfe08a;
-}
 
 /* ---------------------------------------------------------------- narrow --
    Most people open this link on a phone, so this is a layout, not a fallback.
@@ -198,12 +183,12 @@ html, body { background: var(--rpg-ui-body-bg, #17100a); }
 .pet-boot-card h2 { margin: 0 0 6px; font-size: 17px; }
 .pet-boot-card p { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; opacity: .8; }
 .pet-boot-card ul { margin: 0 0 10px; padding-left: 18px; text-align: left; font-size: 12px; line-height: 1.6; }
-.pet-boot-card b { color: var(--rpg-ui-accent); }
+.pet-boot-card b { color: var(--ui-accent); }
 .pet-boot-hint { font-size: 11.5px; opacity: .62; }
 .pet-boot-card .rpg-ui-btn { margin-top: 4px; }
 .pet-boot-spin {
   width: 26px; height: 26px; margin: 2px auto 12px; border-radius: 50%;
-  border: 3px solid rgba(226, 186, 118, .22); border-top-color: var(--rpg-ui-accent);
+  border: 3px solid rgba(226, 186, 118, .22); border-top-color: var(--ui-accent);
   animation: pet-spin .9s linear infinite;
 }
 @keyframes pet-spin { to { transform: rotate(360deg) } }
@@ -213,8 +198,8 @@ html, body { background: var(--rpg-ui-body-bg, #17100a); }
 
 /* the second click of the two-step reset */
 .rpg-ui-btn.pet-danger {
-  border-color: var(--rpg-ui-danger);
-  color: var(--rpg-ui-danger);
+  border-color: var(--ui-bad);
+  color: var(--ui-bad);
   font-weight: 700;
 }
 
@@ -232,36 +217,29 @@ html, body { background: var(--rpg-ui-body-bg, #17100a); }
   opacity: .6; font-weight: 700;
 }
 .pet-row { display: flex; align-items: center; gap: 9px; font-size: 12.5px; }
-.pet-row input[type=range] { flex: 1; accent-color: var(--rpg-ui-accent); }
+.pet-row input[type=range] { flex: 1; accent-color: var(--ui-accent); }
 .pet-row b { min-width: 26px; text-align: right; font-variant-numeric: tabular-nums; }
 .pet-check { cursor: pointer; margin-top: 8px; }
-.pet-check input { accent-color: var(--rpg-ui-accent); width: 15px; height: 15px; }
+.pet-check input { accent-color: var(--ui-accent); width: 15px; height: 15px; }
 .pet-seg { display: flex; gap: 5px; }
 .pet-seg .rpg-ui-btn { flex: 1; padding: 5px 0; font-size: 11.5px; text-transform: capitalize; }
 .pet-seg .rpg-ui-btn.on, .pet-title-row .rpg-ui-btn.on {
-  border-color: var(--rpg-ui-accent); color: var(--rpg-ui-accent);
+  border-color: var(--ui-accent); color: var(--ui-accent);
 }
 .pet-hint { margin: 6px 0 0; font-size: 11px; line-height: 1.5; opacity: .58; }
 .pet-settings .pet-hint + .pet-row { margin-top: 10px; }
 
-/* Colour-blind safe bar ramps (Okabe-Ito). The Fed and Calm bars sit next to each
-   other in red and green, which is the pair most commonly confused. */
-:root[data-cb="on"] .rpg-ui-bar[data-type="health"] .rpg-ui-bar-fill,
-:root[data-cb="on"] .rpg-ui-status-bar-fill[data-type="health"] {
-  background: linear-gradient(180deg, #f08c3a 0%, #d55e00 100%); box-shadow: 0 0 8px #f08c3a;
+/* Colour-blind safe palette (Okabe-Ito). The Fed and Calm bars sit next to each
+   other in warm and green, the pair most commonly confused. */
+:root[data-cb="on"] {
+  --ui-good: #56b4e9;    /* sky blue */
+  --ui-warn: #e69f00;    /* orange */
+  --ui-bad:  #d55e00;    /* vermillion */
+  --ui-accent: #f0e442;  /* yellow */
 }
-:root[data-cb="on"] .rpg-ui-bar[data-type="mana"] .rpg-ui-bar-fill,
-:root[data-cb="on"] .rpg-ui-status-bar-fill[data-type="mana"] {
-  background: linear-gradient(180deg, #8ccdf2 0%, #0072b2 100%); box-shadow: 0 0 8px #56b4e9;
-}
-:root[data-cb="on"] .rpg-ui-bar[data-type="experience"] .rpg-ui-bar-fill {
-  background: linear-gradient(180deg, #f7ef7a 0%, #cfc424 100%); box-shadow: 0 0 8px #f0e442;
-}
-:root[data-cb="on"] .rpg-ui-bar[data-type="stamina"] .rpg-ui-bar-fill {
-  background: linear-gradient(180deg, #e3a6c6 0%, #cc79a7 100%); box-shadow: 0 0 8px #cc79a7;
-}
-:root[data-cb="on"] .pet-pop.tone-danger { color: #f08c3a }
-:root[data-cb="on"] .pet-pop.tone-leaf   { color: #8ccdf2 }
+:root[data-cb="on"] .rpg-ui-bar[data-type="stamina"] .rpg-ui-bar-fill { background: #cc79a7; }
+:root[data-cb="on"] .pet-pop.tone-danger { color: #e69f00 }
+:root[data-cb="on"] .pet-pop.tone-leaf   { color: #56b4e9 }
 
 /* Reduce motion: the fly still walks, but the UI stops competing for attention.
    Honours the OS setting too, so it works without opening the panel. */

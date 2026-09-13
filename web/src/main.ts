@@ -1,3 +1,6 @@
+import 'open-props/shadows'
+import 'open-props/easings'
+import 'open-props/borders'
 import './style.css'
 import { missingFeatures } from './support'
 import { Brain } from './brain'

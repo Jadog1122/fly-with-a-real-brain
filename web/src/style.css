@@ -1,34 +1,30 @@
+@import './tokens.css';
+
 :root {
-  /* The pet page moved to a warm meadow palette; this page kept the old dark-slate
-     and cyan, so the two halves of one product read as different products.  Same
-     layout and structure, retinted onto the pet's ramp - bark, cream and honey. */
-  --bg: #17100a;
-  --panel: rgba(38, 27, 16, .74);
-  --panel2: rgba(46, 33, 20, .60);
-  --line: rgba(226, 186, 118, .22);
-  --rim: rgba(226, 186, 118, .42);
-  --cy: #f0b23c;
-  --cy-hot: #ffd27a;
-  --ink: #fdf3e0;
-  --dim: #d9c8a4;
-  --dimmer: #a08e6e;
-  --accent: #f0b23c;
-  --accent2: #9ad45f;
-  --hot: #e2563c;
+  /* Mapped onto the shared tokens rather than holding its own palette, which is
+     how this page drifted onto a different look from the pet twice already. */
+  --bg: var(--ui-bg);
+  --panel: var(--ui-surface);
+  --panel2: var(--ui-raised);
+  --line: var(--ui-hairline);
+  --rim: var(--ui-hairline);
+  --cy: var(--ui-accent);
+  --cy-hot: var(--ui-accent);
+  --ink: var(--ui-text);
+  --dim: var(--ui-dim);
+  --dimmer: var(--ui-faint);
+  --accent: var(--ui-accent);
+  --accent2: var(--ui-good);
+  --hot: var(--ui-bad);
   --side: 336px;
-  --glass:
-    linear-gradient(135deg, rgba(255, 222, 160, .14), rgba(0, 0, 0, 0) 34%),
-    linear-gradient(rgba(70, 51, 31, .82), rgba(36, 26, 16, .90));
+  --glass: none;
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body {
-  background:
-    radial-gradient(1200px 700px at 50% -10%, rgba(240, 178, 60, .08), transparent 70%),
-    var(--bg);
+  background: var(--bg);
   color: var(--ink);
-  font: 13px/1.5 Optima, "Optima Nova", Candara, "Gill Sans", "Gill Sans MT",
-        "Segoe UI", system-ui, sans-serif;
+  font: 13px/1.5 var(--ui-font);
   overflow: hidden; -webkit-font-smoothing: antialiased;
 }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
@@ -55,10 +51,10 @@ body {
 
 .card {
   position: relative;
-  background-image: var(--glass);
-  border: 1px solid var(--rim); border-radius: 6px;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 22px 44px rgba(0, 0, 0, .32), inset 0 1px 0 rgba(255, 255, 255, .16);
+  background: var(--panel);
+  border: 1px solid var(--line); border-radius: 14px;
+  backdrop-filter: var(--ui-blur); -webkit-backdrop-filter: var(--ui-blur);
+  box-shadow: var(--shadow-3);
   padding: 10px 11px; display: flex; flex-direction: column; gap: 7px; flex: none;
 }
 .card::before, .card::after {
@@ -90,8 +86,8 @@ body {
 .hl .t { font-family: ui-monospace, monospace; color: var(--dimmer); font-size: 10px; }
 
 #filter {
-  background: #1c1409; border: 1px solid var(--line); border-radius: 6px;
-  color: var(--ink); padding: 5px 8px; font-size: 11.5px; outline: none;
+  background: #1c1409; border: 1px solid var(--line); border-radius: 999px;
+  color: var(--ink); padding: 6px 11px; font-size: 11.5px; outline: none;
 }
 #filter:focus { border-color: #8a6a32; }
 #exp-list {
@@ -188,8 +184,8 @@ button.ghost.on { border-color: var(--accent); color: var(--accent); }
 }
 #transport .row { display: flex; align-items: center; gap: 10px; }
 #transport button {
-  background: rgba(28, 19, 10, .6); border: 1px solid var(--line); color: var(--ink);
-  border-radius: 3px; width: 32px; height: 30px; cursor: pointer; font-size: 13px;
+  background: var(--panel2); border: 1px solid var(--line); color: var(--ink);
+  border-radius: 999px; width: 34px; height: 32px; cursor: pointer; font-size: 13px;
   font-family: inherit; transition: border-color .15s, box-shadow .15s;
 }
 #transport button:hover { border-color: var(--cy); box-shadow: 0 0 14px rgba(240, 178, 60, .32); }

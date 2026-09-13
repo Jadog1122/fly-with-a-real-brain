@@ -517,8 +517,18 @@ export class Scene3D {
       for (const shadow of [true, false]) {
         const subset = list.filter(pl => pl.shadow === shadow)
         if (!subset.length) continue
+        const windy = Scene3D.WINDY.test(file)
         for (const part of parts) {
-          const im = new THREE.InstancedMesh(part.geo, part.mat, subset.length)
+          // each windy prop gets its own material clone so the sway can be scaled to
+          // how tall that species actually is
+          let pmat = part.mat
+          if (windy) {
+            part.geo.computeBoundingBox()
+            const hgt = Math.max(0.01, part.geo.boundingBox!.max.y)
+            pmat = part.mat.clone()
+            this.windify(pmat, hgt, hgt * 0.09)
+          }
+          const im = new THREE.InstancedMesh(part.geo, pmat, subset.length)
           im.castShadow = shadow
           im.receiveShadow = true
           for (let i = 0; i < subset.length; i++) {
@@ -830,6 +840,61 @@ export class Scene3D {
    * the extra geometry pass, and particles are the only thing that grows without
    * bound during play.
    */
+  private windTime = { value: 0 }
+
+  /**
+   * Plants sway; pebbles do not. Matched on the kit's own file names.
+   */
+  private static WINDY = /^(Grass|Fern|Clover|Plant|Flower)/
+
+  /**
+   * Wind, and light coming through a leaf.
+   *
+   * Both are injected into the standard material rather than written from scratch, so
+   * the props keep their PBR shading, shadows and fog. The sway is weighted by height
+   * within the model so the base stays planted in the ground and only the tip moves,
+   * and it is offset by the instance's world position so the whole meadow does not
+   * flex as one object.
+   *
+   * The translucency is a wrap-lighting approximation, not real subsurface: when the
+   * sun is behind a leaf, add light proportional to how directly it is behind. Real
+   * transmission needs its own render pass per frame and there are thousands of these.
+   */
+  private windify(mat: THREE.Material, height: number, sway: number) {
+    mat.onBeforeCompile = shader => {
+      shader.uniforms.uTime = this.windTime
+      shader.uniforms.uHeight = { value: height }
+      shader.uniforms.uSway = { value: sway }
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', `#include <common>
+          uniform float uTime; uniform float uHeight; uniform float uSway;`)
+        .replace('#include <begin_vertex>', `#include <begin_vertex>
+          {
+            vec3 ip = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
+            float ph = ip.x * 0.011 + ip.z * 0.017;
+            float gust = sin(uTime * 1.05 + ph) + 0.45 * sin(uTime * 2.37 + ph * 1.9);
+            float k = pow(clamp(transformed.y / uHeight, 0.0, 1.0), 1.7) * uSway;
+            transformed.x += gust * k;
+            transformed.z += gust * k * 0.55;
+          }`)
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', `#include <common>
+          varying vec3 vWorldNrm;`)
+        .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+          {
+            // sun behind the surface, seen through it
+            vec3 L = normalize(directionalLights[0].direction);
+            float back = pow(max(dot(-L, normalize(vNormal)), 0.0), 2.0);
+            reflectedLight.directDiffuse += directionalLights[0].color
+              * back * 0.55 * diffuseColor.rgb;
+          }`)
+    }
+    // One cache key for every windy material, not one per height. Height and sway are
+    // uniforms, so they can differ per material while all of them share a single
+    // compiled program - keying on the values compiled twenty near-identical shaders.
+    mat.customProgramCacheKey = () => 'windy'
+  }
+
   private occluders: THREE.Object3D[] = []
   private ray = new THREE.Raycaster()
   private camDist = 300
@@ -903,8 +968,13 @@ export class Scene3D {
       ao.output = GTAOPass.OUTPUT.Default
       // the arena is ~760 units across and the props are small, so the sampling
       // radius is in tens of units, not the single-digit default
-      ao.updateGtaoMaterial({ radius: 18, distanceExponent: 1.4, thickness: 12,
-                              scale: 1.1, samples: 12 })
+      ao.updateGtaoMaterial({ radius: 14, distanceExponent: 1.5, thickness: 8,
+                              scale: 1.0, samples: 16 })
+      // GTAO samples stochastically, so raw output is speckled - it was throwing
+      // coloured noise across the whole ground. The denoise pass is not optional;
+      // without configuring it the default is far too tight for a 14-unit radius.
+      ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3,
+                            radius: 4, radiusExponent: 1, rings: 2, samples: 16 })
       c.addPass(ao)
 
       const bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.55, 0.65, 0.78)
@@ -994,6 +1064,7 @@ export class Scene3D {
       this.rippleB.offset.x -= dt * 0.008
       this.rippleB.offset.y += dt * 0.017
     }
+    this.windTime.value += dt
     this.airborne += ((action.escape ? 1 : 0) - this.airborne) * Math.min(1, dt * 7)
 
     // Ground contact, as dust.  Everything here is driven by decoded behaviour, so the

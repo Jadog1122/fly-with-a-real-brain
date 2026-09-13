@@ -1460,7 +1460,10 @@ export class Scene3D {
     this.fly.root.position.set(f.x, f.alt + bob, f.y)
     this.fly.root.rotation.set(f.pitch, -f.h + Math.PI, f.bank, 'YXZ')
     this.fly.update(dt, {
-      speed: f.speed, legPhase: f.legPhase, escape: action.escape,
+      // Flight, not the escape command. The world's f.wing was moved over when flight
+      // was added but this was missed, so the model kept folding its wings the moment
+      // the Giant Fibre stopped firing - with the fly still seconds from the ground.
+      speed: f.speed, legPhase: f.legPhase, escape: f.flying > 0.15,
       proboscis: action.proboscis, groom: action.groom, startle: f.startle,
       airborne: this.airborne,
     })

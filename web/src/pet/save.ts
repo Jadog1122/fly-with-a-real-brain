@@ -116,7 +116,8 @@ export function validate(raw: unknown, arenaW: number, arenaH: number,
 /** Put a validated state back into a live world. Returns the settings to apply. */
 export function restore(state: SavedState, world: World, kinds: StimKind[]): Settings {
   const known = new Map(kinds.map(k => [k.id, k]))
-  Object.assign(world.fly, state.fly, { speed: 0, legPhase: 0, wing: 0, eating: 0 })
+  Object.assign(world.fly, state.fly)
+  world.restBody()
   world.clear()
   world.trail.length = 0
   for (const s of state.stims) {

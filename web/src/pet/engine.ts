@@ -198,8 +198,8 @@ export class PetEngine {
     forget()
     const f = this.world.fly
     Object.assign(f, { x: this.world.w / 2, y: this.world.h / 2, h: -Math.PI / 2,
-                       speed: 0, legPhase: 0, wing: 0, hunger: 0.35, startle: 0,
-                       fed: 0, eating: 0 })
+                       hunger: 0.35, startle: 0, fed: 0 })
+    this.world.restBody()
     this.world.clear()
     this.world.trail.length = 0
   }

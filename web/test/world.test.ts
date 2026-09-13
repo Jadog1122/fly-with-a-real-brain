@@ -95,6 +95,86 @@ describe('feeding', () => {
   })
 })
 
+describe('flight', () => {
+  const meal = (): Stim => ({ kind: sugar, x: 0, y: 0, id: 1 })
+
+  it('takes off on the escape readout and settles at a cruise height', () => {
+    const w = new World()
+    run(w, act({ escape: true }), 3000)
+    expect(w.fly.alt).toBeGreaterThan(60)
+    expect(w.fly.flying).toBeGreaterThan(0.9)
+  })
+
+  it('comes all the way down, and all the way to zero', () => {
+    // The regression CI caught: damp is asymptotic, so without snapping the tail the
+    // fly stayed fractionally airborne for ever - wings never folded, legs never
+    // resumed, every `flying > 0` check stayed live.
+    const w = new World()
+    run(w, act({ escape: true }), 3000)
+    run(w, still, 6000)
+    expect(w.fly.alt).toBe(0)
+    expect(w.fly.flying).toBe(0)
+    expect(w.fly.wing).toBe(0)
+  })
+
+  it('does not walk in mid-air', () => {
+    const w = new World()
+    run(w, act({ escape: true }), 3000)
+    const legs = w.fly.legPhase
+    run(w, act({ escape: true, forward: 120 }), 1000)
+    expect(w.fly.legPhase, 'legs kept striding while airborne').toBeCloseTo(legs, 3)
+  })
+
+  it('keeps its wings out through the whole descent, not just while the neuron fires', () => {
+    const w = new World()
+    run(w, act({ escape: true }), 3000)
+    run(w, still, 700)                       // escape command gone, still falling
+    expect(w.fly.alt).toBeGreaterThan(5)
+    // if the wings followed the escape command this would be exactly 0; it is the
+    // flight it tracks, which is still ~0.28 of the way through its decay here
+    expect(w.fly.wing).toBeGreaterThan(0.15)
+  })
+
+  it('carries angular momentum, so a turn does not stop dead', () => {
+    const w = new World()
+    run(w, act({ escape: true }), 3000)
+    run(w, act({ escape: true, turn: 1.4 }), 700)
+    const spinning = w.fly.turnRate
+    expect(spinning).toBeGreaterThan(0.5)
+    const before = w.fly.h
+    run(w, act({ escape: true }), 200)       // command cut
+    expect(w.fly.h, 'heading should coast on').not.toBeCloseTo(before, 2)
+  })
+
+  it('cannot eat while airborne', () => {
+    const w = new World()
+    w.fly.hunger = 0.9
+    const eaten: Stim[] = []
+    // flying, proboscis out, sitting right on the food
+    for (let t = 0; t < 4000; t += 16) {
+      w.step(act({ escape: true, proboscis: 1 }), 16, s => eaten.push(s), meal())
+    }
+    expect(w.fly.alt).toBeGreaterThan(40)
+    expect(eaten.length, 'ate a meal from the air').toBe(0)
+    expect(w.fly.hunger).toBeGreaterThan(0.9)
+  })
+
+  it('restBody() puts the body down and clears the spring state', () => {
+    const w = new World()
+    run(w, act({ escape: true, turn: 1.2 }), 3000)
+    expect(w.fly.alt).toBeGreaterThan(40)
+    w.restBody()
+    expect(w.fly.alt).toBe(0)
+    expect(w.fly.flying).toBe(0)
+    expect(w.fly.turnRate).toBe(0)
+    expect(w.fly.bank).toBe(0)
+    // and it must not inherit the previous fly's momentum on the next step
+    w.step(still, 16, () => {}, null)
+    expect(w.fly.alt).toBe(0)
+    expect(Math.abs(w.fly.turnRate)).toBeLessThan(0.01)
+  })
+})
+
 describe('stimulus bookkeeping', () => {
   it('adds and removes by id', () => {
     const w = new World()

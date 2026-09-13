@@ -8,6 +8,8 @@ import { PetEngine, type Snapshot } from './engine'
 import type { StimKind } from './sensors'
 import { BootOverlay, type BootState } from './BootOverlay'
 import { missingFeatures } from '../support'
+import { SettingsPanel } from './SettingsPanel'
+import { DEFAULTS, type Settings } from './save'
 
 const BAR_TYPE: Record<string, string> = {
   escape: 'health', proboscis: 'experience', groom: 'stamina',
@@ -29,6 +31,8 @@ export default function App() {
   const [sound, setSound] = useState(false)
   const [overview, setOverview] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [settings, setSettings] = useState<Settings>({ ...DEFAULTS, picked: 'sugar' })
   const [boot, setBoot] = useState<BootState>(() => {
     const missing = missingFeatures()
     return missing.length ? { kind: 'unsupported', missing } : { kind: 'loading' }
@@ -54,6 +58,7 @@ export default function App() {
         if (!restored) return
         setSpeed(String(restored.speed))
         setPicked(restored.picked)
+        setSettings(restored)
         // Audio cannot start without a gesture, so a remembered "sound on" is armed
         // rather than applied, and takes effect the first time the page is touched.
         if (restored.sound) {
@@ -71,6 +76,7 @@ export default function App() {
       const t = ev.target as HTMLElement | null
       if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return
       if (ev.key === 'v' || ev.key === 'V') setOverview(o => !o)
+      if (ev.key === 'Escape') { setShowSettings(false); setConfirmReset(false) }
     }
     addEventListener('keydown', key)
     return () => {
@@ -146,15 +152,9 @@ export default function App() {
                   }}>{sound ? '🔊' : '🔇'}</button>
           <button className="rpg-ui-btn" title="Remove everything you have put down"
                   onClick={() => { engine?.clear(); engine?.saveNow() }}>Clear</button>
-          <button className={`rpg-ui-btn${confirmReset ? ' pet-danger' : ''}`}
-                  title="Forget this fly and start a new one"
-                  onClick={() => {
-                    if (!confirmReset) { setConfirmReset(true); return }
-                    engine?.resetPet(); engine?.saveNow(); setConfirmReset(false)
-                  }}
-                  onBlur={() => setConfirmReset(false)}>
-            {confirmReset ? 'Sure?' : 'New fly'}
-          </button>
+          <button className={`rpg-ui-btn${showSettings ? ' on' : ''}`} title="Settings"
+                  aria-expanded={showSettings}
+                  onClick={() => { setShowSettings(v => !v); setConfirmReset(false) }}>⚙</button>
           <a className="rpg-ui-btn" href="/">Explorer</a>
         </div>
       </div>
@@ -220,6 +220,18 @@ export default function App() {
         <p className="pet-sub">{snap?.brainNote || '138,639 neurons'}</p>
         <div ref={brainRef} className="pet-brainhost" />
       </div>
+
+      <SettingsPanel
+        open={showSettings}
+        settings={settings}
+        confirmReset={confirmReset}
+        onChange={patch => { setSettings(engine!.applySettings(patch)) }}
+        onClose={() => { setShowSettings(false); setConfirmReset(false) }}
+        onReset={() => {
+          if (!confirmReset) { setConfirmReset(true); return }
+          engine?.resetPet(); engine?.saveNow(); setConfirmReset(false); setShowSettings(false)
+        }}
+      />
 
       <BootOverlay state={boot} onRetry={() => location.reload()} />
 

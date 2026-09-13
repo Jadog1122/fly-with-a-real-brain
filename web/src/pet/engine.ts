@@ -8,7 +8,7 @@ import { MotorDecoder, type Action, type Rates } from './motor'
 import { World } from './world'
 import { Scene3D } from './scene3d'
 import { PetAudio } from './audio'
-import { snapshot, restore, read, write, forget, type Settings } from './save'
+import { snapshot, restore, read, write, forget, DEFAULTS, type Settings } from './save'
 import * as THREE from 'three'
 import { loadNeurons, type NeuronData } from '../data'
 import { Brain } from '../brain'
@@ -124,13 +124,17 @@ export class PetEngine {
     })
     // Bring back the fly you left. The brain is deliberately not restored - see save.ts.
     const saved = read(this.world.w, this.world.h, this.stimuli)
-    let settings: Settings = { speed: 1, sound: false, picked: this.stimuli[0].id }
+    let settings: Settings = { ...DEFAULTS, picked: this.stimuli[0].id }
     if (saved) {
       settings = restore(saved, this.world, this.stimuli)
       this.picked = this.stimuli.find(k => k.id === settings.picked) ?? this.stimuli[0]
     }
     this.worker.postMessage({ type: 'speed', factor: settings.speed })
     this.settings = settings
+    this.audio.setVolume(settings.volume)
+    this.scene.setQuality(settings.quality)
+    document.documentElement.dataset.cb = settings.colourblind ? 'on' : ''
+    document.documentElement.dataset.reduceMotion = settings.reducedMotion ? 'on' : ''
     // Scene3D watches its own host for resize
     // The fly's life runs on a timer, not on requestAnimationFrame: rAF stops entirely
     // when the page is not being painted, which would freeze the simulation and the
@@ -145,7 +149,7 @@ export class PetEngine {
     return settings
   }
 
-  private settings: Settings = { speed: 1, sound: false, picked: '' }
+  private settings: Settings = { ...DEFAULTS, picked: '' }
   private lastSave = 0
 
   private onVisibility = () => { if (document.visibilityState === 'hidden') this.saveNow() }
@@ -158,6 +162,25 @@ export class PetEngine {
   }
 
   setSound(on: boolean) { this.settings = { ...this.settings, sound: on }; this.saveNow() }
+
+  /** The single path the settings panel uses; applies the change and persists it. */
+  applySettings(patch: Partial<Settings>) {
+    this.settings = { ...this.settings, ...patch }
+    const s = this.settings
+    if (patch.volume !== undefined) this.audio.setVolume(s.volume)
+    if (patch.quality !== undefined) this.scene?.setQuality(s.quality)
+    if (patch.speed !== undefined) this.worker.postMessage({ type: 'speed', factor: s.speed })
+    if (patch.colourblind !== undefined) {
+      document.documentElement.dataset.cb = s.colourblind ? 'on' : ''
+    }
+    if (patch.reducedMotion !== undefined) {
+      document.documentElement.dataset.reduceMotion = s.reducedMotion ? 'on' : ''
+    }
+    this.saveNow()
+    return s
+  }
+
+  get currentSettings(): Settings { return this.settings }
 
   /** Forget this fly and start a new one. */
   resetPet() {

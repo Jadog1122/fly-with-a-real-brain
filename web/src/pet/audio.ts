@@ -50,7 +50,7 @@ export class PetAudio {
     this.noise = noiseBuffer(ctx)
 
     this.master = ctx.createGain()
-    this.master.gain.value = 0.9
+    this.master.gain.value = this.level
     this.master.connect(ctx.destination)
 
     // room tone: a whisper of filtered noise so silence is not a dead line
@@ -86,9 +86,24 @@ export class PetAudio {
     this.enabled = true
   }
 
+  /** 0..1. Kept across a mute so unmuting returns to the level you chose. */
+  private level = 0.9
+  private muted = false
+
+  setVolume(v: number) {
+    this.level = Math.min(1, Math.max(0, v))
+    this.applyGain()
+  }
+
   mute(on: boolean) {
+    this.muted = on
+    this.applyGain()
+  }
+
+  private applyGain() {
     if (!this.ctx) return
-    this.master.gain.setTargetAtTime(on ? 0 : 0.9, this.ctx.currentTime, 0.05)
+    // ramped, not stepped: a jump in gain is an audible click
+    this.master.gain.setTargetAtTime(this.muted ? 0 : this.level, this.ctx.currentTime, 0.05)
   }
 
   /** A footfall: short filtered noise tick. */

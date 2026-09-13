@@ -8,6 +8,7 @@
 
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import type { Quality } from './save'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { Fly3D } from './fly3d'
 import type { Action } from './motor'
@@ -95,7 +96,7 @@ export class Scene3D {
 
   constructor(host: HTMLElement, private world: World) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2))   // replaced by setQuality
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -361,7 +362,7 @@ export class Scene3D {
         vx: (Math.random() - .5) * 150, vy: 90 + Math.random() * 120, vz: (Math.random() - .5) * 150,
       })
     }
-    while (this.particles.length > 120) {
+    while (this.particles.length > this.particleCap) {
       this.scene.remove(this.particles.shift()!.mesh)
     }
   }
@@ -369,6 +370,39 @@ export class Scene3D {
   kick(amount: number) { this.shake = Math.min(1, this.shake + amount) }
 
   /** Pull back to see the whole arena, or drop back in behind the fly. */
+  private particleCap = 120
+
+  /**
+   * The three knobs worth turning. Resolution dominates fill cost, shadows dominate
+   * the extra geometry pass, and particles are the only thing that grows without
+   * bound during play.
+   */
+  setQuality(q: Quality) {
+    const dpr = devicePixelRatio || 1
+    if (q === 'low') {
+      this.renderer.setPixelRatio(1)
+      this.renderer.shadowMap.enabled = false
+      this.particleCap = 35
+    } else if (q === 'medium') {
+      this.renderer.setPixelRatio(Math.min(dpr, 1.5))
+      this.renderer.shadowMap.enabled = true
+      this.key.shadow.mapSize.set(1024, 1024)
+      this.particleCap = 70
+    } else {
+      this.renderer.setPixelRatio(Math.min(dpr, 2))
+      this.renderer.shadowMap.enabled = true
+      this.key.shadow.mapSize.set(2048, 2048)
+      this.particleCap = 120
+    }
+    // the shadow map is allocated lazily, so it has to be dropped to be resized
+    this.key.shadow.map?.dispose()
+    this.key.shadow.map = null
+    this.key.shadow.needsUpdate = true
+    while (this.particles.length > this.particleCap) {
+      this.scene.remove(this.particles.shift()!.mesh)
+    }
+  }
+
   setOverview(on: boolean) {
     this.overview = on
     const f = this.world.fly

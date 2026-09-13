@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { snapshot, validate, restore, read, write, forget } from '../src/pet/save'
+import { snapshot, validate, restore, read, write, forget, DEFAULTS } from '../src/pet/save'
 import { World } from '../src/pet/world'
 import { STIMULI } from '../src/pet/sensors'
 
 const W = 760, H = 490
 const v = (raw: unknown) => validate(raw, W, H, STIMULI)
-const settings = { speed: 1, sound: false, picked: STIMULI[0].id }
+const settings = { ...DEFAULTS, picked: STIMULI[0].id }
 
 beforeEach(() => { forget(); vi.restoreAllMocks() })
 
@@ -118,6 +118,37 @@ describe('validation', () => {
     const out = v({ v: 1, fly: {}, stims: [], settings: { speed: 9999, sound: 'yes' } })!
     expect(out.settings.speed).toBeLessThanOrEqual(4)
     expect(out.settings.sound).toBe(false)
+  })
+})
+
+describe('settings added after v1 shipped', () => {
+  it('defaults them instead of rejecting an older save', () => {
+    // the shape a v1 save actually had on disk, with no graphics or accessibility keys
+    const old = { v: 1, at: 1, fly: { x: 10, y: 10, hunger: 0.5, fed: 2 }, stims: [],
+                  settings: { speed: 0.5, sound: true, picked: STIMULI[0].id } }
+    const out = v(old)
+    expect(out, 'an older save must still load').not.toBeNull()
+    expect(out!.fly.fed).toBe(2)                       // the fly survived
+    expect(out!.settings.speed).toBe(0.5)              // as did what it did have
+    expect(out!.settings.volume).toBe(DEFAULTS.volume)
+    expect(out!.settings.quality).toBe(DEFAULTS.quality)
+    expect(out!.settings.colourblind).toBe(false)
+    expect(out!.settings.reducedMotion).toBe(false)
+  })
+
+  it('clamps volume and rejects an unknown quality tier', () => {
+    const out = v({ v: 1, fly: {}, stims: [],
+                    settings: { volume: 42, quality: 'ultra', colourblind: 'yes' } })!
+    expect(out.settings.volume).toBe(1)
+    expect(out.settings.quality).toBe(DEFAULTS.quality)
+    expect(out.settings.colourblind).toBe(false)       // only a real true counts
+  })
+
+  it('round-trips every setting', () => {
+    const chosen = { ...DEFAULTS, picked: STIMULI[1].id, volume: 0.25,
+                     quality: 'low' as const, colourblind: true, reducedMotion: true }
+    const out = v(snapshot(new World(), chosen))!
+    expect(out.settings).toEqual(chosen)
   })
 })
 

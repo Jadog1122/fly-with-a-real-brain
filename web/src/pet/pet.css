@@ -130,3 +130,58 @@ html, body { background: var(--rpg-ui-body-bg, #17100a); }
   color: var(--rpg-ui-danger);
   font-weight: 700;
 }
+
+/* ---------------------------------------------------------------- settings */
+.pet-settings {
+  position: absolute; top: 14px; right: 14px; width: 300px; z-index: 40;
+  padding: 14px 16px; max-height: calc(100vh - 28px); overflow-y: auto;
+}
+.pet-settings-head { display: flex; align-items: center; justify-content: space-between; }
+.pet-settings h2 { margin: 0; font-size: 15px; }
+.pet-settings-x { padding: 2px 7px; font-size: 12px; line-height: 1; }
+.pet-settings section { margin-top: 14px; }
+.pet-settings h3 {
+  margin: 0 0 7px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  opacity: .6; font-weight: 700;
+}
+.pet-row { display: flex; align-items: center; gap: 9px; font-size: 12.5px; }
+.pet-row input[type=range] { flex: 1; accent-color: var(--rpg-ui-accent); }
+.pet-row b { min-width: 26px; text-align: right; font-variant-numeric: tabular-nums; }
+.pet-check { cursor: pointer; margin-top: 8px; }
+.pet-check input { accent-color: var(--rpg-ui-accent); width: 15px; height: 15px; }
+.pet-seg { display: flex; gap: 5px; }
+.pet-seg .rpg-ui-btn { flex: 1; padding: 5px 0; font-size: 11.5px; text-transform: capitalize; }
+.pet-seg .rpg-ui-btn.on, .pet-title-row .rpg-ui-btn.on {
+  border-color: var(--rpg-ui-accent); color: var(--rpg-ui-accent);
+}
+.pet-hint { margin: 6px 0 0; font-size: 11px; line-height: 1.5; opacity: .58; }
+.pet-settings .pet-hint + .pet-row { margin-top: 10px; }
+
+/* Colour-blind safe bar ramps (Okabe-Ito). The Fed and Calm bars sit next to each
+   other in red and green, which is the pair most commonly confused. */
+:root[data-cb="on"] .rpg-ui-bar[data-type="health"] .rpg-ui-bar-fill,
+:root[data-cb="on"] .rpg-ui-status-bar-fill[data-type="health"] {
+  background: linear-gradient(180deg, #f08c3a 0%, #d55e00 100%); box-shadow: 0 0 8px #f08c3a;
+}
+:root[data-cb="on"] .rpg-ui-bar[data-type="mana"] .rpg-ui-bar-fill,
+:root[data-cb="on"] .rpg-ui-status-bar-fill[data-type="mana"] {
+  background: linear-gradient(180deg, #8ccdf2 0%, #0072b2 100%); box-shadow: 0 0 8px #56b4e9;
+}
+:root[data-cb="on"] .rpg-ui-bar[data-type="experience"] .rpg-ui-bar-fill {
+  background: linear-gradient(180deg, #f7ef7a 0%, #cfc424 100%); box-shadow: 0 0 8px #f0e442;
+}
+:root[data-cb="on"] .rpg-ui-bar[data-type="stamina"] .rpg-ui-bar-fill {
+  background: linear-gradient(180deg, #e3a6c6 0%, #cc79a7 100%); box-shadow: 0 0 8px #cc79a7;
+}
+:root[data-cb="on"] .pet-pop.tone-danger { color: #f08c3a }
+:root[data-cb="on"] .pet-pop.tone-leaf   { color: #8ccdf2 }
+
+/* Reduce motion: the fly still walks, but the UI stops competing for attention.
+   Honours the OS setting too, so it works without opening the panel. */
+:root[data-reduce-motion="on"] .pet-pop { animation-duration: 2.6s }
+:root[data-reduce-motion="on"] .pet-boot-spin { animation-duration: 3s }
+:root[data-reduce-motion="on"] .pet-brainpanel { transition: none }
+@media (prefers-reduced-motion: reduce) {
+  .pet-pop { animation-duration: 2.6s }
+  .pet-brainpanel { transition: none }
+}

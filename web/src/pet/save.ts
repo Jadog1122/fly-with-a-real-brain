@@ -17,7 +17,23 @@ import type { StimKind } from './sensors'
 const KEY = 'fly-pet'
 const VERSION = 1
 
-export interface Settings { speed: number; sound: boolean; picked: string }
+export type Quality = 'low' | 'medium' | 'high'
+export const QUALITIES: Quality[] = ['low', 'medium', 'high']
+
+export interface Settings {
+  speed: number
+  sound: boolean
+  picked: string
+  volume: number          // 0..1, independent of mute
+  quality: Quality
+  colourblind: boolean    // switches the HUD ramps to an Okabe-Ito safe set
+  reducedMotion: boolean
+}
+
+export const DEFAULTS: Omit<Settings, 'picked'> = {
+  speed: 1, sound: false, volume: 0.9, quality: 'high',
+  colourblind: false, reducedMotion: false,
+}
 
 export interface SavedState {
   v: number
@@ -83,9 +99,16 @@ export function validate(raw: unknown, arenaW: number, arenaH: number,
         adapt: num(s.adapt, 0, 1, 1),
       })),
     settings: {
-      speed: num(set.speed, 0.05, 4, 1),
+      // Fields added after v1 shipped are defaulted rather than version-gated, so an
+      // older save still loads instead of silently resetting someone's fly.
+      speed: num(set.speed, 0.05, 4, DEFAULTS.speed),
       sound: set.sound === true,
       picked: known.has(String(set.picked)) ? String(set.picked) : (kinds[0]?.id ?? ''),
+      volume: num(set.volume, 0, 1, DEFAULTS.volume),
+      quality: QUALITIES.includes(set.quality as Quality)
+        ? (set.quality as Quality) : DEFAULTS.quality,
+      colourblind: set.colourblind === true,
+      reducedMotion: set.reducedMotion === true,
     },
   }
 }

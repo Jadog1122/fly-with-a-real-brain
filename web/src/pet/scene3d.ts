@@ -466,6 +466,7 @@ export class Scene3D {
     }
     await this.buildInstances()
     this.addWaterAndDew(r)
+    await this.addMossAndCanopy(r, this.cache)
     this.ready = true
   }
 
@@ -711,6 +712,110 @@ export class Scene3D {
   }
 
   /** Pull back to see the whole arena, or drop back in behind the fly. */
+  /**
+   * Moss cushions and the tall grass that arches into frame.
+   *
+   * The cushions are domed discs rather than flat patches - moss grows as a mound,
+   * and at this scale a flat green decal reads as paint. They are placed around the
+   * puddle, because that is where moss actually is.
+   *
+   * The arching grass is deliberately NOT added to the occluder list. The camera
+   * dodges anything that blocks it, which is right for scenery you need to see past,
+   * but wrong here: this grass exists precisely to drift through the foreground and
+   * be thrown out of focus, which is the framing in every macro photograph. Letting
+   * the camera dodge it would delete the effect.
+   */
+  private async addMossAndCanopy(r: () => number, proto: Map<string, THREE.Group>) {
+    const { w, h } = this.world
+    const tl = new THREE.TextureLoader()
+    const aniso = this.renderer.capabilities.getMaxAnisotropy()
+
+    const mossMat = new THREE.MeshStandardMaterial({ color: 0x5c7a3a, roughness: 1 })
+    Promise.all([
+      tl.loadAsync('tex/moss_diff.jpg'),
+      tl.loadAsync('tex/moss_nor.jpg'),
+      tl.loadAsync('tex/moss_arm.jpg'),
+    ]).then(([d, n, a]) => {
+      for (const t of [d, n, a]) {
+        t.wrapS = t.wrapT = THREE.RepeatWrapping
+        t.repeat.set(2.5, 2.5)
+        t.anisotropy = aniso
+      }
+      d.colorSpace = THREE.SRGBColorSpace
+      mossMat.map = d
+      mossMat.normalMap = n
+      mossMat.normalScale.set(1.6, 1.6)
+      mossMat.aoMap = a
+      mossMat.roughnessMap = a
+      mossMat.color.setHex(0xffffff)
+      mossMat.needsUpdate = true
+    }).catch(() => { /* the flat green stands in */ })
+
+    const wx = this.water ? this.water.position.x : w * 0.62
+    const wz = this.water ? this.water.position.z : h * 0.44
+    for (let i = 0; i < 9; i++) {
+      const rad = 55 + r() * 95
+      const geo = new THREE.SphereGeometry(rad, 20, 10, 0, Math.PI * 2, 0, Math.PI * 0.42)
+      geo.setAttribute('uv1', geo.attributes.uv)
+      const pos = geo.attributes.position as THREE.BufferAttribute
+      for (let v = 0; v < pos.count; v++) {          // lumpy, not a clean dome
+        const k = 1 + (Math.sin(pos.getX(v) * 0.09) + Math.cos(pos.getZ(v) * 0.11)) * 0.06
+        pos.setXYZ(v, pos.getX(v) * k, pos.getY(v) * 0.36 * k, pos.getZ(v) * k)
+      }
+      geo.computeVertexNormals()
+      const m = new THREE.Mesh(geo, mossMat)
+      const ang = r() * Math.PI * 2, dist = 120 + r() * 230
+      m.position.set(
+        Math.max(60, Math.min(w - 60, wx + Math.cos(ang) * dist)),
+        -rad * 0.16,
+        Math.max(60, Math.min(h - 60, wz + Math.sin(ang) * dist * 0.7)))
+      m.rotation.y = r() * Math.PI * 2
+      m.receiveShadow = true
+      m.castShadow = true
+      this.scene.add(m)
+      this.occluders.push(m)                          // solid: the camera should avoid it
+    }
+
+    // Tall blades arcing in from the edges of frame.
+    const tallFile = 'Grass_Wispy_Tall'
+    const tall = proto.get(tallFile)
+    if (!tall) return
+    const parts: { geo: THREE.BufferGeometry; mat: THREE.Material; local: THREE.Matrix4 }[] = []
+    tall.updateMatrixWorld(true)
+    tall.traverse(o => {
+      const me = o as THREE.Mesh
+      if (me.isMesh) parts.push({ geo: me.geometry, mat: me.material as THREE.Material,
+                                  local: me.matrixWorld.clone() })
+    })
+    const N = 34
+    const mat4 = new THREE.Matrix4(), q = new THREE.Quaternion()
+    const e = new THREE.Euler(), v3 = new THREE.Vector3(), sc = new THREE.Vector3()
+    for (const part of parts) {
+      part.geo.computeBoundingBox()
+      const hgt = Math.max(0.01, part.geo.boundingBox!.max.y)
+      const pm = part.mat.clone()
+      this.windify(pm, hgt, hgt * 0.16)               // the tall ones move most
+      const im = new THREE.InstancedMesh(part.geo, pm, N)
+      im.castShadow = true
+      for (let i = 0; i < N; i++) {
+        const edge = r()
+        const [px, pz] = perimeter(edge, w, h)
+        const inward = Math.atan2(h / 2 - pz, w / 2 - px)
+        v3.set(px + (r() - .5) * 90, -12, pz + (r() - .5) * 90)
+        // leaned in toward the middle, so it arcs over the arena rather than away
+        e.set(0.35 + r() * 0.5, inward + Math.PI / 2 + (r() - .5) * 0.8, 0)
+        q.setFromEuler(e)
+        const k = S * (2.2 + r() * 2.1)                // much larger than the skirt
+        sc.set(k, k * (1.1 + r() * 0.5), k)
+        mat4.compose(v3, q, sc).multiply(part.local)
+        im.setMatrixAt(i, mat4)
+      }
+      im.instanceMatrix.needsUpdate = true
+      im.computeBoundingSphere()
+      this.scene.add(im)
+    }
+  }
+
   private water: THREE.Mesh | null = null
   private rippleA: THREE.Texture | null = null
   private rippleB: THREE.Texture | null = null

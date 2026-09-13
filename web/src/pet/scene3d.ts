@@ -3,8 +3,8 @@
 // Props are Quaternius's Stylized Nature MegaKit (CC0, opengameart.org) loaded as glTF.
 // At a fly's scale a clover is a canopy, a pebble is a boulder and a blade of grass is a
 // tree, so the arena wall is a real ring of rocks rather than an invisible edge.
-// The fly itself is procedural (there is no CC0 Drosophila) and flat-shaded to sit in
-// the same style.
+// The fly itself is Maf'j Alvarez's CC-BY "shy fly", flat-shaded to sit in the same
+// style and rigged at load time in fly3d.ts.  See NOTICE.
 
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'

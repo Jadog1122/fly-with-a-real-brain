@@ -123,3 +123,10 @@ html, body { background: var(--rpg-ui-body-bg, #17100a); }
 @media (prefers-reduced-motion: reduce) {
   .pet-boot-spin { animation-duration: 2.4s }
 }
+
+/* the second click of the two-step reset */
+.rpg-ui-btn.pet-danger {
+  border-color: var(--rpg-ui-danger);
+  color: var(--rpg-ui-danger);
+  font-weight: 700;
+}

@@ -635,3 +635,10 @@ rm -rf data/cache/b2_build data/cache/b2_smoke
   installed from npm and used directly, retinted through its own CSS variables.
 - 3-D props: **Stylized Nature MegaKit** by [Quaternius](https://quaternius.com),
   **CC0** — no attribution required, given here anyway.
+- The fly itself: **"shy fly" by Maf'j Alvarez**, **CC-BY-3.0**, from Google Poly via
+  [poly.pizza](https://poly.pizza/m/8p3PASxvAQr) (Poly's own page said "Public /
+  Remixable (CC-BY)"; the [Icosa archive](https://api.icosa.gallery/v1/assets/8p3PASxvAQr)
+  of Poly records `CREATIVE_COMMONS_BY` 3.0). **Attribution is required** — keep this
+  credit in any fork. The `.glb` is shipped unmodified; `web/src/pet/fly3d.ts` rigs it
+  at load time and adds no geometry. See `NOTICE` for the full provenance, including a
+  note on the author's later Sketchfab upload of the same model under NC terms.

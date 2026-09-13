@@ -28,6 +28,7 @@ export default function App() {
   const [speed, setSpeed] = useState('1')
   const [sound, setSound] = useState(false)
   const [overview, setOverview] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
   const [boot, setBoot] = useState<BootState>(() => {
     const missing = missingFeatures()
     return missing.length ? { kind: 'unsupported', missing } : { kind: 'loading' }
@@ -49,6 +50,21 @@ export default function App() {
       pending = s
       if (!timer) timer = window.setTimeout(flush, 50)
     }, err => setBoot({ kind: 'error', err }))
+      .then(restored => {
+        if (!restored) return
+        setSpeed(String(restored.speed))
+        setPicked(restored.picked)
+        // Audio cannot start without a gesture, so a remembered "sound on" is armed
+        // rather than applied, and takes effect the first time the page is touched.
+        if (restored.sound) {
+          const arm = async () => {
+            await e.audio.enable()
+            setSound(true)
+          }
+          addEventListener('pointerdown', arm, { once: true })
+          addEventListener('keydown', arm, { once: true })
+        }
+      })
       .catch(err => setBoot({ kind: 'error', err: err instanceof Error ? err : new Error(String(err)) }))
     if (import.meta.env.DEV) window.__pet = { engine: e }
     const key = (ev: KeyboardEvent) => {
@@ -57,7 +73,10 @@ export default function App() {
       if (ev.key === 'v' || ev.key === 'V') setOverview(o => !o)
     }
     addEventListener('keydown', key)
-    return () => removeEventListener('keydown', key)
+    return () => {
+      removeEventListener('keydown', key)
+      e.dispose()
+    }
   }, [])
 
   useEffect(() => { engineRef.current?.setOverview(overview) }, [overview])
@@ -120,11 +139,22 @@ export default function App() {
             <option value="0.5">half speed</option>
             <option value="0.25">quarter</option>
           </select>
-          <button className="rpg-ui-btn" onClick={async () => {
-            if (!sound) { await engine?.audio.enable(); setSound(true) }
-            else { engine?.audio.mute(true); setSound(false) }
-          }}>{sound ? '🔊' : '🔇'}</button>
-          <button className="rpg-ui-btn" onClick={() => engine?.clear()}>Clear</button>
+          <button className="rpg-ui-btn" title={sound ? 'Mute' : 'Sound on'}
+                  onClick={async () => {
+                    if (!sound) { await engine?.audio.enable(); setSound(true); engine?.setSound(true) }
+                    else { engine?.audio.mute(true); setSound(false); engine?.setSound(false) }
+                  }}>{sound ? '🔊' : '🔇'}</button>
+          <button className="rpg-ui-btn" title="Remove everything you have put down"
+                  onClick={() => { engine?.clear(); engine?.saveNow() }}>Clear</button>
+          <button className={`rpg-ui-btn${confirmReset ? ' pet-danger' : ''}`}
+                  title="Forget this fly and start a new one"
+                  onClick={() => {
+                    if (!confirmReset) { setConfirmReset(true); return }
+                    engine?.resetPet(); engine?.saveNow(); setConfirmReset(false)
+                  }}
+                  onBlur={() => setConfirmReset(false)}>
+            {confirmReset ? 'Sure?' : 'New fly'}
+          </button>
           <a className="rpg-ui-btn" href="/">Explorer</a>
         </div>
       </div>

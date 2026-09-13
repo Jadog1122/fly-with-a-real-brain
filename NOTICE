@@ -15,6 +15,17 @@ Components under other terms, retained here with attribution:
   - Neuron annotations and coordinates: CC-BY-4.0, Schlegel et al. 2024,
     github.com/flyconnectome/flywire_annotations
   - 3-D props: Stylized Nature MegaKit by Quaternius, CC0
+  - 3-D fly: "shy fly" by Maf'j Alvarez, CC-BY-3.0.  Published by its author on Google
+    Poly, which stated "Public / Remixable (CC-BY) ... You're free to use this as long
+    as you credit the author"; Poly shut down in 2021, and the asset is mirrored by the
+    Icosa Foundation's archive, which records license CREATIVE_COMMONS_BY version 3.0.
+      source:   https://poly.pizza/m/8p3PASxvAQr
+      archive:  https://api.icosa.gallery/v1/assets/8p3PASxvAQr
+      file:     web/public/models/fly/shy-fly.glb (unmodified; rigged at load time by
+                web/src/pet/fly3d.ts, which adds no geometry of its own)
+    The same author later published this model on Sketchfab under CC BY-NC-SA. That is
+    a separate, later grant and does not withdraw the CC-BY one relied on here, but a
+    fork that wants to avoid the ambiguity should replace this asset.
   - Interface components: @rpgjs/ui-css, MIT
 
 FlyWire connectome data carries its own terms, which are not the same as this repository's

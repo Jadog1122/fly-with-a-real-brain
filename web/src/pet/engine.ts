@@ -8,6 +8,7 @@ import { MotorDecoder, type Action, type Rates } from './motor'
 import { World } from './world'
 import { Scene3D } from './scene3d'
 import { PetAudio } from './audio'
+import { snapshot, restore, read, write, forget, type Settings } from './save'
 import * as THREE from 'three'
 import { loadNeurons, type NeuronData } from '../data'
 import { Brain } from '../brain'
@@ -121,13 +122,60 @@ export class PetEngine {
       subnetUrl: new URL('data/subnet.bin', location.href).href,
       petUrl: new URL('data/pet.json', location.href).href,
     })
-    this.worker.postMessage({ type: 'speed', factor: 1 })
+    // Bring back the fly you left. The brain is deliberately not restored - see save.ts.
+    const saved = read(this.world.w, this.world.h, this.stimuli)
+    let settings: Settings = { speed: 1, sound: false, picked: this.stimuli[0].id }
+    if (saved) {
+      settings = restore(saved, this.world, this.stimuli)
+      this.picked = this.stimuli.find(k => k.id === settings.picked) ?? this.stimuli[0]
+    }
+    this.worker.postMessage({ type: 'speed', factor: settings.speed })
+    this.settings = settings
     // Scene3D watches its own host for resize
     // The fly's life runs on a timer, not on requestAnimationFrame: rAF stops entirely
     // when the page is not being painted, which would freeze the simulation and the
     // HUD along with it.  Only drawing is tied to the paint schedule.
     this.timer = window.setInterval(this.tick, 16)
     requestAnimationFrame(this.paint)
+
+    // A tab is often closed rather than navigated away from, and 'unload' is not
+    // reliable on mobile; pagehide and a hidden visibilitychange are.
+    addEventListener('pagehide', this.saveNow)
+    addEventListener('visibilitychange', this.onVisibility)
+    return settings
+  }
+
+  private settings: Settings = { speed: 1, sound: false, picked: '' }
+  private lastSave = 0
+
+  private onVisibility = () => { if (document.visibilityState === 'hidden') this.saveNow() }
+
+  /** Write the current world out now. Cheap: a few hundred bytes of JSON. */
+  saveNow = () => {
+    if (!this.ready) return
+    this.lastSave = performance.now()
+    write(snapshot(this.world, this.settings))
+  }
+
+  setSound(on: boolean) { this.settings = { ...this.settings, sound: on }; this.saveNow() }
+
+  /** Forget this fly and start a new one. */
+  resetPet() {
+    forget()
+    const f = this.world.fly
+    Object.assign(f, { x: this.world.w / 2, y: this.world.h / 2, h: -Math.PI / 2,
+                       speed: 0, legPhase: 0, wing: 0, hunger: 0.35, startle: 0,
+                       fed: 0, eating: 0 })
+    this.world.clear()
+    this.world.trail.length = 0
+  }
+
+  dispose() {
+    this.saveNow()
+    removeEventListener('pagehide', this.saveNow)
+    removeEventListener('visibilitychange', this.onVisibility)
+    if (this.timer) clearInterval(this.timer)
+    this.worker.terminate()
   }
 
   private onWorker(m: WorkerMessage) {
@@ -152,9 +200,17 @@ export class PetEngine {
     }
   }
 
-  setSpeed(f: number) { this.worker.postMessage({ type: 'speed', factor: f }) }
+  setSpeed(f: number) {
+    this.worker.postMessage({ type: 'speed', factor: f })
+    this.settings = { ...this.settings, speed: f }
+    this.saveNow()
+  }
   setOverview(on: boolean) { this.scene?.setOverview(on) }
-  pick(kind: StimKind) { this.picked = kind }
+  pick(kind: StimKind) {
+    this.picked = kind
+    this.settings = { ...this.settings, picked: kind.id }
+    this.saveNow()
+  }
   clear() { this.world.clear() }
 
   /**
@@ -216,6 +272,10 @@ export class PetEngine {
   private tick = () => {
     const dtMs = Math.min(this.simPending, 120)
     this.simPending -= dtMs
+
+    // Autosave. pagehide and visibilitychange cover an orderly exit, but not a crash
+    // or a tab the OS kills, so keep a floor on how much can be lost.
+    if (performance.now() - this.lastSave > 5000) this.saveNow()
 
     // a starved fly has more sensitive sugar receptors, which is real in Drosophila
     const gain = (id: string) => id === 'sugar' ? 0.55 + this.world.fly.hunger * 0.9 : 1
@@ -309,5 +369,4 @@ export class PetEngine {
     requestAnimationFrame(this.paint)
   }
 
-  dispose() { clearInterval(this.timer) }
 }

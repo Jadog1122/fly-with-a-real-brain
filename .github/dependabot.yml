@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # one PR per ecosystem rather than a dozen; CI gates them either way
+      dev-tooling:
+        patterns: ['vite', 'vitest', '@vitest/*', 'eslint*', 'typescript*',
+                   '@typescript-eslint/*', 'prettier', '@playwright/*', 'jsdom',
+                   '@testing-library/*', '@vitejs/*']
+      runtime:
+        patterns: ['three', 'react', 'react-dom', '@types/*', '@rpgjs/*']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

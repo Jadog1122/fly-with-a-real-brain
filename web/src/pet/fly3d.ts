@@ -101,6 +101,7 @@ export class Fly3D {
 
   private legs: Limb[] = []
   private wings: Limb[] = []
+  private wingMats: THREE.MeshStandardMaterial[] = []
   private proboscis?: THREE.Group
   private eyeMat?: THREE.MeshStandardMaterial
   private wingPhase = 0
@@ -165,6 +166,19 @@ export class Fly3D {
       if (!wing) continue
       const hinge = attachPoint(wing, v => Math.abs(v.x), .2)
       this.wings.push({ pivot: pivotAt(wing, hinge), side: Math.sign(hinge.x) || 1 })
+      // A wing beating at flight speed covers its whole arc several times per frame,
+      // so a solid wing strobes rather than blurs. Thinning it as the beat rises is
+      // the standard stand-in for motion blur and costs nothing.
+      wing.traverse(o => {
+        const me = o as THREE.Mesh
+        if (!me.isMesh) return
+        const wm = (me.material as THREE.MeshStandardMaterial).clone()
+        wm.transparent = true
+        wm.depthWrite = false
+        wm.side = THREE.DoubleSide
+        me.material = wm
+        this.wingMats.push(wm)
+      })
     }
 
     // The torso is everything that rears together: body, eyes, wings.
@@ -247,6 +261,10 @@ export class Fly3D {
     })
 
     // Wings idle with a shiver and thrash on escape, hinged at the thorax.
+    // opacity follows the beat rate, not the pose: still at rest, a smear in flight
+    const blur = 0.92 - this.escapeBlend * 0.58
+    for (const wm of this.wingMats) wm.opacity = blur
+
     const beat = Math.sin(this.wingPhase) * (.06 + this.escapeBlend * .94)
     for (const w of this.wings) {
       w.pivot.rotation.z = w.side * (beat + this.escapeBlend * .5)

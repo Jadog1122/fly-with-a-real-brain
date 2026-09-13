@@ -17,8 +17,10 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js'
+import { FilmPass } from 'three/examples/jsm/postprocessing/FilmPass.js'
 import { VignetteShader } from 'three/examples/jsm/shaders/VignetteShader.js'
 import { BrightnessContrastShader } from 'three/examples/jsm/shaders/BrightnessContrastShader.js'
+import { damp, damp3 } from 'maath/easing'
 import type { Quality } from './save'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { Fly3D } from './fly3d'
@@ -594,6 +596,8 @@ export class Scene3D {
       this.controls.maxDistance = 1400 * k
       this.framingK = k
     }
+    this.baseFov = fov
+    this.fovNow = fov
     this.camera.fov = fov
     this.camera.updateProjectionMatrix()
     this.composer?.setSize(b.width, b.height)
@@ -904,7 +908,9 @@ export class Scene3D {
       part.geo.computeBoundingBox()
       const hgt = Math.max(0.01, part.geo.boundingBox!.max.y)
       const pm = part.mat.clone()
-      this.windify(pm, hgt, hgt * 0.16, 210)          // tallest, moves most, fades up close
+      // Fades from further out than the rest: in flight the camera rises into this
+      // canopy, and at 210 it was still solid enough to bury the shot.
+      this.windify(pm, hgt, hgt * 0.16, 330)
       const im = new THREE.InstancedMesh(part.geo, pm, N)
       im.castShadow = true
       for (let i = 0; i < N; i++) {
@@ -1126,6 +1132,9 @@ export class Scene3D {
   private camDist = 300
   /** Distance multiplier that keeps the subject the same size across aspect ratios. */
   private framingK = 1
+  private wasFlying = 0
+  private baseFov = 38
+  private fovNow = 38
 
   /**
    * Third-person camera collision. At ground level inside a meadow the camera spends
@@ -1247,6 +1256,13 @@ export class Scene3D {
     vignette.uniforms.offset.value = 1.05
     vignette.uniforms.darkness.value = 0.85
     c.addPass(vignette)
+
+    if (q === 'high') {
+      // A trace of grain, last before output. Every photograph has some, and a
+      // perfectly clean frame is one of the things that makes render look like render.
+      // three's FilmPass is grain only in r169 - no scanlines - so it is usable as is.
+      c.addPass(new FilmPass(0.14))
+    }
 
     c.addPass(new OutputPass())   // tone mapping and colour space, once, at the end
     this.composer = c
@@ -1404,13 +1420,32 @@ export class Scene3D {
     }
 
     // a 3/4 chase camera that lags behind the fly, plus a shake on takeoff
-    this.shake = Math.max(0, this.shake - dt * 2.6)
+    damp(this, 'shake', 0, 0.34, dt)
+    if (this.shake < 0.002) this.shake = 0
+
+    // Takeoff shoves the camera. A launch that the frame does not react to reads as
+    // the fly sliding upward; a kick on the leading edge of flight, scaled by how
+    // sharply it left, makes it read as a launch. Only on the way up.
+    if (f.flying > 0.25 && this.wasFlying <= 0.25) this.kick(0.55)
+    this.wasFlying = f.flying
+
+    // The lens widens a little under acceleration and settles back - a small, cheap
+    // borrow from every chase camera ever made, and the thing that makes speed felt
+    // rather than merely shown.
+    const wantFov = this.baseFov * (1 + f.flying * 0.09 + Math.min(0.05, f.speed / 2600))
+    damp(this, 'fovNow', wantFov, 0.5, dt)
+    if (Math.abs(this.camera.fov - this.fovNow) > 0.01) {
+      this.camera.fov = this.fovNow
+      this.camera.updateProjectionMatrix()
+    }
     // The camera orbits a target you can spin and zoom; the target is what follows the
     // fly (or the whole arena in overview), so looking around never fights the chase.
     const goal = this.overview
       ? new THREE.Vector3(this.world.w / 2, 0, this.world.h / 2)
       : new THREE.Vector3(f.x, 26 + f.alt * 0.85, f.y)
-    this.camTarget.lerp(goal, Math.min(1, dt * (this.overview ? 1.6 : 2.6)))
+    // damp3 rather than lerp: a lerp with dt baked into t converges in a fixed number
+    // of frames, so the camera chased harder at high frame rates than at low.
+    damp3(this.camTarget, goal, this.overview ? 0.62 : 0.34, dt)
     this.controls.target.copy(this.camTarget)
     const sh = this.shake * 12
     this.camera.position.x += (Math.random() - .5) * sh

@@ -65,6 +65,10 @@ export class World {
     const wantAir = a.escape ? 1 : 0
     // committing fast and releasing slowly is what makes a startle read as a launch
     damp(f, 'flying', wantAir, wantAir ? 0.07 : 0.55, dt)
+    // damp is asymptotic, so this never actually reaches zero and the fly stays
+    // fractionally airborne for ever - wings never fully fold, legs never fully
+    // resume, and every `flying > 0` check stays alive. Snap the tail off.
+    if (wantAir === 0 && f.flying < 0.012) { f.flying = 0; f.turnRate *= 0.5 }
 
     const CRUISE = 96
     damp(f, 'alt', f.flying * CRUISE, f.flying > f.alt / CRUISE ? 0.13 : 0.34, dt)

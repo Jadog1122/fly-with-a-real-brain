@@ -120,12 +120,18 @@ describe('stimulus bookkeeping', () => {
 })
 
 describe('wing state', () => {
-  it('is full while escaping and decays back to rest afterwards', () => {
+  it('is full while escaping and folds away once it has actually landed', () => {
+    // Wings track flight, not the escape command: the Giant Fibre fires for a moment
+    // and the flight lasts seconds, so they stay out through the whole descent.
     const w = new World()
     run(w, act({ escape: true }), 500)
     expect(w.fly.wing).toBe(1)
-    run(w, still, 2000)
-    expect(w.fly.wing).toBe(0)
+    run(w, still, 1000)
+    expect(w.fly.wing, 'still descending, wings still out').toBeGreaterThan(0)
+    run(w, still, 4000)
+    expect(w.fly.wing, 'landed, wings folded').toBe(0)
+    expect(w.fly.flying).toBe(0)
+    expect(w.fly.alt).toBe(0)
   })
   it('stays within [0, 1] throughout', () => {
     const w = new World()

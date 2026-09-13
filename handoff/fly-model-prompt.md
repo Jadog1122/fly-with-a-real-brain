@@ -63,13 +63,17 @@ this.scene.add(this.fly.root)
 
 // every frame, ~line 388
 this.fly.root.position.set(f.x, 0, f.y)
-this.fly.root.rotation.y = -f.h + Math.PI    // so the model must face +X at rotation 0
+this.fly.root.rotation.y = -f.h + Math.PI    // so the model must face -X in model space
 this.fly.update(dt, {
   speed: f.speed, legPhase: f.legPhase, escape: action.escape,
   proboscis: action.proboscis, groom: action.groom, startle: f.startle,
   airborne: this.airborne,
 })
 ```
+
+(An earlier version of this brief said "+X" on that line. It is wrong: at `h = 0` the
+`+ Math.PI` turns the model 180 degrees, so a model authored facing +X walks backwards.
+Corrected after the fly-model session measured it.)
 
 Keep `class Fly3D` exporting `readonly root: THREE.Group` and the same `update(dt, o)`
 signature. If the model loads asynchronously, `root` must exist immediately and populate

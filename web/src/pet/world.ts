@@ -22,6 +22,7 @@ export interface Fly {
   bank: number                          // roll into a turn, radians
   pitch: number                         // nose attitude, radians
   beat: number                          // wingbeat phase, for the body's bob
+  turnRate: number                      // angular velocity, so heading carries momentum
 }
 
 export class World {
@@ -31,7 +32,7 @@ export class World {
   fly: Fly = {
     x: 380, y: 245, h: -Math.PI / 2, speed: 0, legPhase: 0, wing: 0,
     hunger: 0.35, startle: 0, fed: 0,
-    alt: 0, vAlt: 0, flying: 0, bank: 0, pitch: 0, beat: 0,
+    alt: 0, vAlt: 0, flying: 0, bank: 0, pitch: 0, beat: 0, turnRate: 0,
   }
   stims: Stim[] = []
   trail: [number, number][] = []
@@ -76,14 +77,35 @@ export class World {
     // Bank into the turn and drop the nose to accelerate - both are how a flying
     // insect reads as flying rather than sliding.
     damp(f, 'bank', Math.max(-0.8, Math.min(0.8, -a.turn * 1.1)) * f.flying, 0.17, dt)
-    damp(f, 'pitch', f.flying * (-0.22 - Math.min(0.3, f.speed / 420)), 0.22, dt)
 
-    // Airborne it turns faster and carries more speed; on the ground nothing changes.
-    f.h += (onMeal ? 0 : a.turn * (1 + f.flying * 0.9)) * dt
+    // Nose up as it settles the last of the way down. A flare is what separates a
+    // landing from falling out of the sky, and it is the one bit of the descent an
+    // insect visibly does on purpose.
+    const settling = f.flying < 0.5 && f.alt > 2
+      ? Math.min(1, (0.5 - f.flying) * 2) * Math.min(1, f.alt / 45)
+      : 0
+    const wantPitch = f.flying * (-0.22 - Math.min(0.3, f.speed / 420)) + settling * 0.55
+    damp(f, 'pitch', wantPitch, 0.22, dt)
+
+    // Heading carries momentum. Applying the commanded turn rate straight to the
+    // heading made flight turns unnaturally crisp - a body with mass cannot start and
+    // stop rotating instantly, and in the air there is no foot friction to do it. The
+    // lag is small on the ground, where legs really can stop a turn dead.
+    const cmdTurn = onMeal ? 0 : a.turn * (1 + f.flying * 0.9)
+    damp(f, 'turnRate', cmdTurn, 0.04 + f.flying * 0.26, dt)
+    f.h += f.turnRate * dt
     const target = a.escape ? a.escapeSpeed : onMeal ? 0 : a.forward
     damp(f, 'speed', target, 0.17, dt)
     f.x += Math.cos(f.h) * f.speed * dt
     f.y += Math.sin(f.h) * f.speed * dt
+
+    // A banked turn slips sideways. Flight that tracks its heading exactly reads as
+    // being on rails; the slip is what makes a turn feel like it costs something.
+    if (f.flying > 0.01) {
+      const slip = f.bank * f.flying * 30
+      f.x += Math.cos(f.h + Math.PI / 2) * slip * dt
+      f.y += Math.sin(f.h + Math.PI / 2) * slip * dt
+    }
 
     const m = 26
     if (f.x < m) { f.x = m; f.h = Math.PI - f.h }

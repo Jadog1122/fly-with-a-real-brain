@@ -93,12 +93,94 @@ What changed that touches you:
 WebKit cannot be run on this Mac (Playwright's bundled build segfaults on
 launch). CI covers it on Linux, and it passes.
 
-### <date> — fly-model session — <result>
-<!-- Fill this in when you finish. Required:
-     - model source URL, exact licence, and where you recorded attribution
-     - final byte size of everything added under web/public/models/
-     - which of the seven animation channels are driven by the model's own rig and
-       which you kept procedural, and why
-     - files you changed, and your commit hashes
-     - anything you could not do, stated plainly
--->
+### 2026-09-12 — fly-model session — the fly is a real model now
+
+**Model.** "shy fly" by Maf'j Alvarez. Source page
+https://poly.pizza/m/8p3PASxvAQr (the Google Poly archive). Licence **CC-BY 3.0**,
+confirmed three ways before I committed anything: poly.pizza links
+`creativecommons.org/licenses/by/3.0/`; the Wayback capture of the author's own Poly
+page (`web.archive.org/web/20210619173533/https://poly.google.com/view/8p3PASxvAQr`)
+reads "Public / Remixable (CC-BY) ... You're free to use this as long as you credit
+the author"; and the Icosa Foundation's Poly archive
+(`api.icosa.gallery/v1/assets/8p3PASxvAQr`) records
+`"license": "CREATIVE_COMMONS_BY", "licenseVersion": "3.0"`.
+
+**One thing you should know about that licence.** The same author later published the
+same model on Sketchfab under **CC BY-NC-SA**. I read that as a separate, later grant
+that does not withdraw the CC-BY one the author made on Poly (CC grants are
+irrevocable), and the repo is public, so I committed it. It is your repo and your
+call — if you would rather not carry the ambiguity, say so and I will swap the asset;
+the runner-up is "Fly" by Kohyzazi (https://poly.pizza/m/kCLW4c0kGx), though it is a
+single merged mesh so the legs and wings could not be animated separately.
+Attribution is recorded in `NOTICE` and in the licence list at the end of `README.md`,
+including this caveat.
+
+**Bytes.** `web/public/models/fly/shy-fly.glb`, **133,668 bytes**, and that is
+everything added under `web/public/models/`. No textures at all — the asset is solid
+colours — so nothing to downscale. Shipped byte-identical to the source
+(sha256 `56a12ac7964c403c615c68800b36d73f246fc9cae3ee3fd8d3681587b1c21bf8`).
+Measured first load of the built `pet.html`: **2,500,178 B (2.384 MB)** over 49
+requests, of which the fly is 133,668 B. Everything else sums to 2.257 MB, which
+matches the 2.28 MB you recorded, and nothing is fetched twice — `THREE.Cache` is
+still doing its job.
+
+**Animation channels.** The asset has no bones, but it ships as eleven loose parts
+(body, 2 eyes, 2 wings, 6 legs). `fly3d.ts` rigs it at load: each limb is re-parented
+into a pivot placed at its own attachment point, computed from that part's own
+vertices (top fifth of a leg = its hip; inboard fifth of a wing = its hinge). So:
+
+| channel | driven by | note |
+| --- | --- | --- |
+| `legPhase` / `speed` | **the model's six legs** | alternating tripod; stops dead at speed 0 |
+| `escape` | **the model's two wings** | 90 rad/s vs 12 idle, hinged at the thorax |
+| `groom` | **the model's front two legs** | raised to the face, rubbing out of phase |
+| `startle` | **the model's torso + eye material** | see below |
+| `airborne` | **the whole rig** | squash/stretch + lift + nose-up pitch |
+| `proboscis` | **a second copy of the model's hind leg** | see below |
+
+Two I could not do straight, stated plainly:
+
+* **`startle` does not rear the head alone.** I checked: the body is a single welded
+  shell — head, thorax and abdomen are one connected component, 1095 tris — so there
+  is no head to rotate without cutting geometry. Instead the whole torso rears about
+  the line the legs stand on, while the legs stay planted, and the eyes brighten
+  (the eyes *are* separate meshes). It reads as rearing. It is not a head turn.
+* **There is no proboscis in the mesh** (the snout is part of the body shell). Rather
+  than model a tube, MN9 extends a *second copy of a hind leg* from the snout — it is
+  tapered, dark, and has exactly the facet density and palette of everything else,
+  which built geometry would not. It retracts to nothing when `proboscis` is 0.
+
+No channel was dropped and no channel is faked.
+
+**A bug in the brief, worth recording.** The prompt says the model must face **+X** at
+root rotation 0. It must face **-X**: `scene3d.ts` sets `root.rotation.y = -h + PI`, so
+at root yaw 0 the heading is `h = PI`, which is -X. I had it backwards first and the
+fly walked backwards; measured it rather than reasoned it the second time.
+
+**Files changed:** `web/src/pet/fly3d.ts` (rewritten), `web/public/models/fly/shy-fly.glb`
+(new), `NOTICE`, the licence section of `README.md`, and **two comment lines at the top
+of `web/src/pet/scene3d.ts`** — it still said "The fly itself is procedural (there is no
+CC0 Drosophila)", which is now false in a public repo. That is outside the two fly
+blocks; if you would rather I had left it, revert that hunk, it is only a comment.
+
+**Commit hashes — please read this bit.** I have none of my own for the code. I staged
+my five files and, in the seconds between staging and committing, your
+`1381686 "U1: persist the pet between visits"` picked all five of them up along with
+your own six. My work is intact and correct in that commit (I verified the yaw fix, the
+groom fix, the proboscis values and the GLB checksum all landed), and it is already
+pushed. I have not touched it — the rules say I do not rewrite commits I did not make,
+and splitting it now would be worse than the mess. So `1381686` is a joint commit:
+`fly3d.ts`, `shy-fly.glb`, `NOTICE`, `README.md` and the `scene3d.ts` comment in it are
+mine; `App.tsx`, `engine.ts`, `pet.css`, `save.ts`, `save.test.ts` are yours. Suggest we
+both `git add <explicit paths> && git commit` in one step from now on rather than
+staging and then committing, since `git commit -a`/`-A` sweeps the other session's index.
+
+**Verified:** `npm run check` green (typecheck + lint + 90 tests) and `npm run build`
+exit 0 after `npm ci`. Looked at it in a browser from the follow camera, the `V`
+overview, and close up from six angles; drove every channel through
+`scene.render()`/`fly.update()` and measured each one's range of motion rather than
+eyeballing it (e.g. walking swings a leg 1.00 rad and lifts it 0.38; stopped is exactly
+0; grooming sweeps 0.90 rad and is exactly 0 when not grooming; escape moves a wing
+2.00 rad vs 0.12 idle). One real defect found and fixed that way: grooming was driven
+off `performance.now()` (inherited idiom), so it was wall-clock dependent — it now runs
+off an accumulator advanced by `dt`.

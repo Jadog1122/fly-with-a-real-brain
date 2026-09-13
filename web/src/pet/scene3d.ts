@@ -130,8 +130,11 @@ export class Scene3D {
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2))   // replaced by setQuality
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
-    this.renderer.toneMappingExposure = 1.08
+    // AgX rather than ACES. ACES compresses bright outdoor highlights toward white
+    // and desaturates them; AgX holds hue through the rolloff, which is what a sunlit
+    // meadow needs. It renders darker, hence the higher exposure.
+    this.renderer.toneMapping = THREE.AgXToneMapping
+    this.renderer.toneMappingExposure = 1.45
     host.appendChild(this.renderer.domElement)
 
     this.camera = new THREE.PerspectiveCamera(38, 1, 10, 4000)
@@ -169,8 +172,11 @@ export class Scene3D {
     this.key.position.set(380, 620, 260)
     this.key.castShadow = true
     this.key.shadow.mapSize.set(2048, 2048)
-    const d = 620
-    Object.assign(this.key.shadow.camera, { left: -d, right: d, top: d, bottom: -d, near: 60, far: 1800 })
+    // Tight, and moved with the fly each frame (see updateShadowBox). A single box
+    // over the whole 760x490 arena at 2048 gives ~0.6 world units per texel, which
+    // turns grass shadows into mush; 300 units across is four times sharper.
+    const d = 300
+    Object.assign(this.key.shadow.camera, { left: -d, right: d, top: d, bottom: -d, near: 60, far: 2400 })
     this.key.shadow.bias = -0.0012
     this.key.shadow.normalBias = 1.2   // stops thin grass blades shadow-acneing themselves
     this.scene.add(this.key, this.key.target)
@@ -599,6 +605,26 @@ export class Scene3D {
    * requestAnimationFrame is throttled or stopped there, and counting it would degrade
    * a machine that is coping perfectly well.
    */
+  /**
+   * Keep the shadow frustum over what the camera is actually looking at. A
+   * directional light's shadow map is a fixed box in world space, so a box big enough
+   * for the whole arena wastes almost all its resolution on ground nobody is looking
+   * at. In the overview the box has to open up again to cover everything.
+   */
+  private updateShadowBox() {
+    const f = this.world.fly
+    const cam = this.key.shadow.camera as THREE.OrthographicCamera
+    const d = this.overview ? 640 : 300
+    if (cam.left !== -d) {
+      cam.left = -d; cam.right = d; cam.top = d; cam.bottom = -d
+      cam.updateProjectionMatrix()
+    }
+    // the light keeps its direction; only the centre of its box moves
+    this.key.position.set(f.x + 380, 620, f.y + 260)
+    this.key.target.position.set(f.x, 0, f.y)
+    this.key.target.updateMatrixWorld()
+  }
+
   private measureFps(dt: number) {
     if (!this.ready || this.quality === 'low') return
     if (dt > 0.2 || document.visibilityState !== 'visible') return
@@ -647,7 +673,17 @@ export class Scene3D {
 
     const b = this.renderer.domElement
     const w = b.width || 1, h = b.height || 1
-    const c = new EffectComposer(this.renderer)
+
+    // EffectComposer builds its own render target, and its default has samples: 0.
+    // So switching post-processing on silently turned anti-aliasing OFF - the
+    // renderer's own antialias flag only applies when drawing straight to the canvas,
+    // which meant high quality had jaggier edges than low. Give it a multisampled
+    // target of our own.
+    const target = new THREE.WebGLRenderTarget(w, h, {
+      type: THREE.HalfFloatType,
+      samples: q === 'high' ? 4 : 2,
+    })
+    const c = new EffectComposer(this.renderer, target)
     c.setSize(w, h)
     c.addPass(new RenderPass(this.scene, this.camera))
 
@@ -727,6 +763,7 @@ export class Scene3D {
     const f = this.world.fly
 
     this.measureFps(dt)
+    this.updateShadowBox()
     this.airborne += ((action.escape ? 1 : 0) - this.airborne) * Math.min(1, dt * 7)
 
     // Ground contact, as dust.  Everything here is driven by decoded behaviour, so the

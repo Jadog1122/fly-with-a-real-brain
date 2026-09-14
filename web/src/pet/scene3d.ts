@@ -1188,11 +1188,25 @@ export class Scene3D {
           // Foliage right in front of the lens frames the shot at mid distance and
           // blocks it entirely up close. Dissolve it as it gets near, with a dithered
           // discard rather than alpha so nothing has to be depth-sorted.
+          //
+          // The threshold is an ORDERED dither, not white noise. It used to be
+          // fract(sin(dot(gl_FragCoord.xy, ...)) * 43758.5453) - the standard one-line
+          // hash - and the result was sand. A per-pixel random threshold has no
+          // structure, so a half-dissolved leaf is a random half of its pixels, and
+          // with a lot of geometry inside the fade band that reads as static smeared
+          // over the whole frame rather than as something fading. A Bayer matrix puts
+          // the kept pixels on a regular fine grid instead, which the eye reads as a
+          // screen. Same cost, same one discard, and it is what everyone uses.
           {
             float dcam = length(vViewPosition);
             float vis = smoothstep(uFadeNear * 0.35, uFadeNear, dcam);
-            float dither = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
-            if (vis < dither) discard;
+            const mat4 bayer = mat4( 0.0,  8.0,  2.0, 10.0,
+                                    12.0,  4.0, 14.0,  6.0,
+                                     3.0, 11.0,  1.0,  9.0,
+                                    15.0,  7.0, 13.0,  5.0);
+            int bx = int(mod(gl_FragCoord.x, 4.0));
+            int by = int(mod(gl_FragCoord.y, 4.0));
+            if (vis < (bayer[bx][by] + 0.5) / 16.0) discard;
           }`
           : '#include <clipping_planes_fragment>')
         .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>

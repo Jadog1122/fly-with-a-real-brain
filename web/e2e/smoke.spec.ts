@@ -147,3 +147,53 @@ test('tone mapping runs before the grade, the vignette and the grain', async ({ 
       + order.join(' -> ')).toBeGreaterThan(output)
   }
 })
+
+/**
+ * The fly's body has to actually move.
+ *
+ * The skeleton lives in the asset now (art/rig_fly.py builds it in Blender) and this
+ * plays clips off it, which means there are several new ways for the fly to end up
+ * frozen: the clip names could change, the mixer could never be updated, the weights
+ * could all sit at zero, or the asset could ship without its animations. None of those
+ * would fail a unit test or a build - the fly would just stand there, which is a thing
+ * that has happened to this project more than once for other reasons.
+ */
+test('the brain moves the fly, and the fly has a skeleton that moves with it', async ({ page }) => {
+  await page.goto('/pet.html?perf=1')
+  if (!(await hasWebgl2(page))) {
+    test.skip(true, 'no WebGL2 on this engine; the unsupported path is covered above')
+    return
+  }
+  await expect(page.locator('.pet-boot')).toHaveCount(0, { timeout: 180_000 })
+  await page.waitForTimeout(2000)
+
+  type Pet = { engine: { scene: { fly: {
+    act: Record<string, { getClip: () => { name: string } }>
+    root: { traverse: (fn: (o: {
+      isBone?: boolean; name: string; quaternion: { x: number; y: number; z: number; w: number }
+    }) => void) => void }
+  } } } }
+  const sample = () => page.evaluate(() => {
+    const fly = (window as unknown as { __pet: Pet }).__pet.engine.scene.fly
+    const bones: Record<string, number[]> = {}
+    fly.root.traverse(o => {
+      if (o.isBone) bones[o.name] = [o.quaternion.x, o.quaternion.y, o.quaternion.z, o.quaternion.w]
+    })
+    return { clips: Object.keys(fly.act ?? {}).sort(), bones }
+  })
+
+  const a = await sample()
+  // The asset carries these; if Blender stops exporting one, the blend silently loses
+  // a pose rather than erroring.
+  expect(a.clips, 'the rigged asset is missing clips').toEqual(
+    expect.arrayContaining(['flight', 'groom', 'idle', 'proboscis', 'walk']))
+  expect(Object.keys(a.bones).length, 'the fly has no skeleton').toBeGreaterThanOrEqual(17)
+
+  await page.waitForTimeout(1500)
+  const b = await sample()
+  const moved = Object.keys(a.bones).filter(k =>
+    a.bones[k].some((v, i) => Math.abs(v - b.bones[k][i]) > 1e-3))
+  // Walking, breathing, wingbeat: most of the skeleton should be somewhere else by now.
+  expect(moved.length, `only ${moved.length} of ${Object.keys(a.bones).length} bones moved`
+    + ' in 1.5 s - the fly is frozen').toBeGreaterThanOrEqual(6)
+})

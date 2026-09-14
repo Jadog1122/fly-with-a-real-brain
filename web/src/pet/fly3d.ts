@@ -1,30 +1,33 @@
 // The fly is Maf'j Alvarez's "shy fly" (Google Poly, CC-BY 3.0) — see NOTICE.
 //
-// The asset has no bones, but it does ship as eleven loose parts: a body, two eyes,
-// two wings and six legs.  So it gets rigged here at load time.  Each part is
-// re-parented into a pivot placed at its own attachment point, read off that part's
-// own vertices — the top of a leg is its hip, the inboard edge of a wing is its
-// hinge — and the brain then drives the model's own geometry rather than a stand-in.
+// The asset ships as eleven loose rigid parts with no bones, so this used to build a
+// rig at load time: each part re-parented into a pivot placed at its own attachment
+// point, and every pose computed as numbers inside update().  It worked, but a rigidly
+// rotated part cannot bend — the legs were sticks that swung from the hip with no knee
+// — and there was no way to cross-fade between two poses because there were no poses,
+// only arithmetic.
 //
-// Two things the mesh cannot give us.  The head is welded into the body shell, so
-// `startle` rears the whole torso off the legs instead of just the head.  And there
-// is no separate proboscis, so `proboscis` extends a second copy of a hind leg from
-// the snout: tapered, dark, and the same facet density as everything else, which a
-// built tube would not be.
+// The skeleton now lives in the asset.  art/rig_fly.py builds it in Blender: seventeen
+// bones, two per leg so the leg bends, and five clips — idle, walk, groom, flight and
+// proboscis.  This file plays them.
+//
+// What deliberately did NOT move into clips:
+//
+//   The wingbeat.  A fly beats its wings at a couple of hundred hertz and the rate is
+//   driven by the brain's escape signal; sampling that off a 24-frame clip would alias
+//   into a stutter.  Clips are for poses, code is for oscillators.
+//
+//   The walk cycle's PHASE.  The clip holds the shape of a stride, but where in the
+//   stride the fly is still comes from `legPhase`, which comes out of the motor
+//   neurons.  That is the whole point of the project: the brain drives the body, and a
+//   canned animation playing off a clock would be a lie.
 
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
-const MODEL = 'models/fly/shy-fly.glb'
+const MODEL = 'models/fly/shy-fly-rigged.glb'
 
-// Part names as they appear in the asset.  glTF splits a part per material, so each
-// of these loads as a Group of meshes, and three strips the dots out of the names —
-// hence `find` below, which tries the name both ways.
 const BODY = 'Sphere.001'
-const EYES = ['Sphere.008', 'Sphere.009']
-const WINGS = ['BezierCurve.001_Mesh.001', 'BezierCurve_Mesh']
-const LEGS = ['Sphere.007', 'Sphere.006', 'Sphere.005',     // left: front, mid, hind
-              'Sphere.000', 'Sphere.003', 'Sphere.004']     // right: front, mid, hind
 
 // The old procedural fly was 2.22 units nose to tail and the scene scales the root by
 // 34, so matching that length keeps the fly the size the camera and arena expect.
@@ -46,21 +49,6 @@ function eachVertex(obj: THREE.Object3D, fn: (v: THREE.Vector3) => void) {
 }
 
 /**
- * Centroid of the `frac` of vertices that score lowest — used to find where a limb
- * meets the body, so it can be rotated about that point instead of the model origin.
- */
-function attachPoint(obj: THREE.Object3D, score: (v: THREE.Vector3) => number, frac: number) {
-  const scores: number[] = []
-  eachVertex(obj, v => scores.push(score(v)))
-  const c = new THREE.Vector3()
-  if (!scores.length) return c
-  const cut = [...scores].sort((a, b) => a - b)[Math.max(0, Math.ceil(scores.length * frac) - 1)]
-  let i = 0, n = 0
-  eachVertex(obj, v => { if (scores[i++] <= cut) { c.add(v); n++ } })
-  return n ? c.divideScalar(n) : c
-}
-
-/**
  * Bounds in the asset's own coordinates.  Box3.setFromObject would give world bounds,
  * which are meaningless here: the rig is re-parented and rescaled as it is built.
  */
@@ -69,18 +57,6 @@ function modelBox(objs: THREE.Object3D[]) {
   for (const o of objs) eachVertex(o, v => b.expandByPoint(v))
   return b
 }
-
-/** Hang `obj` off a pivot at `at`, keeping it where it was. */
-function pivotAt(obj: THREE.Object3D, at: THREE.Vector3) {
-  const g = new THREE.Group()
-  g.position.copy(at)
-  obj.position.sub(at)
-  g.add(obj)
-  return g
-}
-
-/** One rigged limb: a pivot at the attachment, plus which way is "out" for that side. */
-interface Limb { pivot: THREE.Group; side: number }
 
 /**
  * Frame-rate independent easing toward a target.  A plain `cur += (t - cur) * k` moves
@@ -91,19 +67,26 @@ function ease(cur: number, target: number, rate: number, dt: number): number {
   return cur + (target - cur) * (1 - Math.exp(-rate * dt))
 }
 
+const TAU = Math.PI * 2
+
+// scratch, so the per-frame wingbeat allocates nothing
+const BEAT_EULER = new THREE.Euler()
+const BEAT_Q = new THREE.Quaternion()
+
 export class Fly3D {
   readonly root = new THREE.Group()
 
-  // root -> rig (normalise + face +X) -> pose (airborne) -> torso (startle) -> parts
+  // root -> rig (normalise + face +X) -> pose (airborne) -> the skinned model
   private rig = new THREE.Group()
   private pose = new THREE.Group()
-  private torso = new THREE.Group()
 
-  private legs: Limb[] = []
-  private wings: Limb[] = []
+  private mixer?: THREE.AnimationMixer
+  private act: Record<string, THREE.AnimationAction> = {}
+  private wings: { bone: THREE.Object3D; rest: THREE.Quaternion }[] = []
+  private thorax?: THREE.Object3D
   private wingMats: THREE.MeshStandardMaterial[] = []
-  private proboscis?: THREE.Group
   private eyeMat?: THREE.MeshStandardMaterial
+
   private wingPhase = 0
   private groomPhase = 0
   private escapeBlend = 0
@@ -113,7 +96,6 @@ export class Fly3D {
 
   constructor() {
     this.rig.add(this.pose)
-    this.pose.add(this.torso)
     this.root.add(this.rig)
     void this.load()
   }
@@ -123,7 +105,8 @@ export class Fly3D {
     const src = gltf.scene
     src.updateMatrixWorld(true)             // so eachVertex reads the asset's own space
 
-    // three strips '[]./:' out of node names when it builds the scene graph.
+    // three strips '[]./:' out of node names when it builds the scene graph, so the
+    // bones Blender called `wing.L` and `leg.L.1.upper` arrive as `wingL`, `legL1upper`.
     const find = (name: string) =>
       src.getObjectByName(name) ?? src.getObjectByName(name.replace(/[[\]./:]/g, ''))
 
@@ -151,71 +134,67 @@ export class Fly3D {
       mat.needsUpdate = true
     })
 
-    // Legs: pivot at the hip, which is the top fifth of the leg's own vertices.
-    for (const name of LEGS) {
-      const leg = find(name)
-      if (!leg) continue
-      const hip = attachPoint(leg, v => -v.y, .2)
-      this.legs.push({ pivot: pivotAt(leg, hip), side: Math.sign(hip.x) || 1 })
+    // Keep each wing's rest orientation. A bone's local transform in a glTF skeleton
+    // carries its orientation relative to its parent, which for these is most of a
+    // right angle - so writing rotation.set() every frame would throw that away and
+    // hang the wings off the thorax at the wrong angle entirely. The beat composes
+    // onto the rest pose instead of replacing it.
+    for (const n of ['wing.L', 'wing.R']) {
+      const b = find(n)
+      if (b) this.wings.push({ bone: b, rest: b.quaternion.clone() })
     }
-    for (const l of this.legs) this.pose.add(l.pivot)
-
-    // Wings: hinge at the inboard fifth, the edge that meets the thorax.
-    for (const name of WINGS) {
-      const wing = find(name)
-      if (!wing) continue
-      const hinge = attachPoint(wing, v => Math.abs(v.x), .2)
-      this.wings.push({ pivot: pivotAt(wing, hinge), side: Math.sign(hinge.x) || 1 })
+    this.thorax = find('thorax')
+    src.traverse(o => {
+      const m = o as THREE.Mesh
+      if (!m.isMesh) return
+      const mat = m.material as THREE.MeshStandardMaterial
       // A wing beating at flight speed covers its whole arc several times per frame,
-      // so a solid wing strobes rather than blurs. Thinning it as the beat rises is
+      // so a solid wing strobes rather than blurs.  Thinning it as the beat rises is
       // the standard stand-in for motion blur and costs nothing.
-      wing.traverse(o => {
-        const me = o as THREE.Mesh
-        if (!me.isMesh) return
-        const wm = (me.material as THREE.MeshStandardMaterial).clone()
+      if (mat?.name === 'flywings-dark' || mat?.name === 'fly-white') {
+        const wm = mat.clone()
         wm.transparent = true
         wm.depthWrite = false
         wm.side = THREE.DoubleSide
-        me.material = wm
+        m.material = wm
         this.wingMats.push(wm)
-      })
-    }
+      }
+    })
 
-    // The torso is everything that rears together: body, eyes, wings.
-    const bodyBox = modelBox([body])
-    this.torso.add(body)
-    for (const name of EYES) { const e = find(name); if (e) this.torso.add(e) }
-    for (const w of this.wings) this.torso.add(w.pivot)
+    this.pose.add(src)
 
-    // Proboscis: a second copy of a hind leg, mounted at the snout.  Its pivot sits
-    // where the leg's hip was, so scaling the pivot retracts it into the head.
-    const donor = this.legs[2]?.pivot.children[0]
-    if (donor) {
-      this.proboscis = new THREE.Group()
-      this.proboscis.position.set(
-        0, bodyBox.min.y + (bodyBox.max.y - bodyBox.min.y) * .42, bodyBox.min.z + .25)
-      this.proboscis.rotation.x = .78                  // forward and down, onto the food
-      this.proboscis.add(donor.clone())
-      this.torso.add(this.proboscis)
+    this.mixer = new THREE.AnimationMixer(src)
+    for (const clip of gltf.animations) {
+      const a = this.mixer.clipAction(clip)
+      a.play()
+      a.enabled = true
+      a.setEffectiveWeight(0)
+      // Every clip is driven by hand from the brain's state, so none of them are
+      // allowed to advance on the mixer's own clock.
+      a.paused = true
+      this.act[clip.name] = a
     }
+    if (!this.act.idle) console.warn('fly3d: the asset has no idle clip; blends will snap')
+    this.act.idle?.setEffectiveWeight(1)
 
     // Normalise: nose to tail becomes TARGET_LEN, and the lowest foot sits on y = 0.
     // The asset is modelled facing -Z; scene3d sets `root.rotation.y = -h + PI`, so at
     // root yaw 0 the fly is heading -X and this yaw has to land the nose there.
+    const bodyBox = modelBox([body])
     const norm = TARGET_LEN / (bodyBox.max.z - bodyBox.min.z)
     const floor = modelBox(parts).min.y
     this.rig.scale.setScalar(norm)
     this.rig.rotation.y = Math.PI / 2
     this.rig.position.y = -floor * norm
 
-    // The torso rears about the line the legs stand on, not about the model origin.
-    const hips = new THREE.Vector3()
-    for (const l of this.legs) hips.add(l.pivot.position)
-    if (this.legs.length) hips.divideScalar(this.legs.length)
-    this.torso.position.copy(hips)
-    for (const c of this.torso.children) c.position.sub(hips)
-
     this.ready = true
+  }
+
+  /** Park a clip at a fraction of its own length. */
+  private at(name: string, frac: number) {
+    const a = this.act[name]
+    if (!a) return
+    a.time = ((frac % 1) + 1) % 1 * a.getClip().duration
   }
 
   /** `speed` in arena units/s, plus the decoded behaviour. */
@@ -234,49 +213,52 @@ export class Fly3D {
 
     this.wingPhase += dt * (12 + this.escapeBlend * 78)
     this.groomPhase += dt * 14
-    if (!this.ready) return
+    if (!this.ready || !this.mixer) return
 
     const moving = Math.min(1, Math.abs(o.speed) / 40)
 
-    // Alternating tripod: each side's front and hind leg swing with the other side's
-    // middle leg, which is how a fly actually walks.
-    this.legs.forEach((leg, i) => {
-      const phase = o.legPhase * 1.6 + (i % 2 ? Math.PI : 0)
-      const swing = Math.sin(phase) * .5 * moving
-      const lift = Math.max(0, Math.cos(phase)) * .38 * moving
+    // Weights that sum to one, because AnimationMixer takes a weighted AVERAGE of
+    // whatever is playing rather than layering it over the rest pose.  A walk clip
+    // alone at weight 0.1 would not come out as a tenth of a stride, it would come out
+    // as a whole stride - it is the only thing in the average.  `idle` takes up the
+    // slack so a partial blend is a partial pose.
+    const wFlight = this.escapeBlend
+    const wGroom = this.groomBlend * (1 - wFlight)
+    const wWalk = moving * (1 - wFlight - wGroom)
+    this.act.flight?.setEffectiveWeight(wFlight)
+    this.act.groom?.setEffectiveWeight(wGroom)
+    this.act.walk?.setEffectiveWeight(wWalk)
+    this.act.idle?.setEffectiveWeight(Math.max(0, 1 - wFlight - wGroom - wWalk))
 
-      if (i % 3 === 0 && this.groomBlend > .001) {
-        // front legs come up off the ground and rub the face, the two out of phase,
-        // blended against wherever the walking stride currently has them
-        const r = Math.sin(this.groomPhase + (i ? Math.PI : 0)) * .45
-        const b = this.groomBlend
-        leg.pivot.rotation.set(
-          swing + (1.15 + r - swing) * b,
-          0,
-          leg.side * (lift + (.35 - lift) * b),
-        )
-        return
-      }
-      leg.pivot.rotation.set(swing, 0, leg.side * lift)
-    })
+    // The brain owns the phase.  1.6 is the stride-per-radian factor the procedural
+    // version used, kept so the gait reads at the same rate against the same speed.
+    this.at('walk', o.legPhase * 1.6 / TAU)
+    this.at('groom', this.groomPhase / TAU)
+    // The proboscis clip is a position on a slider, not a loop: the one bone it drives
+    // is touched by nothing else, so it can sit outside the weighted set at full
+    // strength and simply be scrubbed.
+    this.act.proboscis?.setEffectiveWeight(1)
+    const pro = this.act.proboscis
+    if (pro) pro.time = this.proboscisBlend * pro.getClip().duration
 
-    // Wings idle with a shiver and thrash on escape, hinged at the thorax.
-    // opacity follows the beat rate, not the pose: still at rest, a smear in flight
+    this.mixer.update(dt)
+
+    // --- after the mixer: the things that are oscillators rather than poses ---------
+
+    // Wings idle with a shiver and thrash on escape, hinged at the thorax.  No clip
+    // touches these bones, so writing them here cannot fight the blend.
+    // Opacity follows the beat rate, not the pose: still at rest, a smear in flight.
     const blur = 0.92 - this.escapeBlend * 0.58
     for (const wm of this.wingMats) wm.opacity = blur
 
     const beat = Math.sin(this.wingPhase) * (.06 + this.escapeBlend * .94)
-    for (const w of this.wings) {
-      w.pivot.rotation.z = w.side * (beat + this.escapeBlend * .5)
-      w.pivot.rotation.y = w.side * beat * .3
-    }
+    BEAT_EULER.set(beat + this.escapeBlend * .5, beat * .3, 0)
+    BEAT_Q.setFromEuler(BEAT_EULER)
+    for (const w of this.wings) w.bone.quaternion.copy(w.rest).multiply(BEAT_Q)
 
-    if (this.proboscis) {
-      // kept mounted until the blend has actually reached zero, or it vanishes
-      // mid-retraction
-      this.proboscis.visible = this.proboscisBlend > .005
-      this.proboscis.scale.set(.34, .95 * (.02 + this.proboscisBlend), .5)
-    }
+    // Startled flies rear up.  Applied on top of whatever the blend left the thorax at,
+    // in the thorax's own frame, so it composes with the walk's bob instead of fighting it.
+    if (this.thorax && o.startle > 0.001) this.thorax.rotateX(o.startle * .3)
 
     // Squash on landing, stretch on takeoff.
     const air = o.airborne
@@ -284,8 +266,6 @@ export class Fly3D {
     this.pose.position.y = air * 5.8
     this.pose.rotation.x = air * .22
 
-    // Startled flies rear up and their eyes catch the light.
-    this.torso.rotation.x = o.startle * .3
     if (this.eyeMat) {
       this.eyeMat.emissive.setHex(EYE).multiplyScalar(.18 + o.startle * .5)
     }

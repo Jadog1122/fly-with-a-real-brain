@@ -21,8 +21,17 @@ Components under other terms, retained here with attribution:
     Icosa Foundation's archive, which records license CREATIVE_COMMONS_BY version 3.0.
       source:   https://poly.pizza/m/8p3PASxvAQr
       archive:  https://api.icosa.gallery/v1/assets/8p3PASxvAQr
-      file:     web/public/models/fly/shy-fly.glb (unmodified; rigged at load time by
-                web/src/pet/fly3d.ts, which adds no geometry of its own)
+      files:    web/public/models/fly/shy-fly.glb - the author's file, unmodified.
+              web/public/models/fly/shy-fly-rigged.glb - a DERIVATIVE of it, and what
+                the game actually loads. CC-BY requires modifications to be noted, so:
+                a seventeen-bone armature was added and the eleven original parts were
+                skinned to it (two bones per leg, so the legs bend); five animation
+                clips were authored - idle, walk, groom, flight, proboscis; and the
+                proboscis is a duplicate of the author's own hind-leg mesh, rescaled
+                and mounted at the snout, because the model has no mouthparts. No
+                original geometry was altered, added to or removed. The whole
+                derivation is one script, art/rig_fly.py, run against the file above -
+                so exactly what was changed is readable, and re-runnable.
     The same author later published this model on Sketchfab under CC BY-NC-SA. That is
     a separate, later grant and does not withdraw the CC-BY one relied on here, but a
     fork that wants to avoid the ambiguity should replace this asset.

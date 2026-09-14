@@ -27,4 +27,18 @@ export default ts.config(
     files: ['**/*.test.ts', 'test/**/*.ts'],
     rules: { '@typescript-eslint/no-explicit-any': 'off' },
   },
+  {
+    // The measurement harnesses are Node scripts that also carry page.evaluate bodies,
+    // so their source legitimately names both Node and browser globals.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        process: 'readonly', console: 'readonly',
+        setTimeout: 'readonly', clearTimeout: 'readonly',
+        window: 'readonly', document: 'readonly', performance: 'readonly',
+        requestAnimationFrame: 'readonly', devicePixelRatio: 'readonly',
+        Promise: 'readonly', Uint8Array: 'readonly', Uint16Array: 'readonly',
+      },
+    },
+  },
 )

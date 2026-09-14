@@ -26,6 +26,12 @@ Components under other terms, retained here with attribution:
     The same author later published this model on Sketchfab under CC BY-NC-SA. That is
     a separate, later grant and does not withdraw the CC-BY one relied on here, but a
     fork that wants to avoid the ambiguity should replace this asset.
+  - Surface textures: Poly Haven, CC0. CC0 asks for nothing, but the site asks to be
+    credited and the assets are worth crediting.
+      web/public/tex/moss_*.jpg   https://polyhaven.com/a/forest_leaves_02
+      web/public/tex/ground_*.jpg Poly Haven, but which asset was not recorded when it
+                                  was fetched and has not been re-identified since.
+    Downsampled to 512x512 and re-encoded for page weight; otherwise unmodified.
   - Interface components: @rpgjs/ui-css, MIT
 
 FlyWire connectome data carries its own terms, which are not the same as this repository's

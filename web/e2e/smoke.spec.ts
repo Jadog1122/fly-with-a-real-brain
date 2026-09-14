@@ -90,3 +90,60 @@ test('the explorer page loads the connectome', async ({ page }) => {
 
   expect(errors, `console errors: ${errors.join(' | ')}`).toEqual([])
 })
+
+/**
+ * Tone mapping must come before the display-referred passes.
+ *
+ * This exists because of a bug nothing else could see. The colour grade was running
+ * BEFORE tone mapping, so BrightnessContrastShader's `(c - 0.5) / (1 - contrast) + 0.5`
+ * was pivoting around 0.5 in LINEAR light, where mid grey is about 0.21. Everything
+ * below linear 0.07 - most of the frame - was driven negative and clipped to pure
+ * black. Measured on the running game, the picture's 25th percentile was 0.000 and its
+ * median 0.021 against a calibration target of 0.31: more than half of every frame was
+ * crushed, the meadow read as a dark hole and the fly was invisible in it. Every unit
+ * test passed and the build was clean.
+ *
+ * The obvious guard - render a frame and assert its histogram - was tried first and
+ * does not work here. On this software renderer the camera's view at boot is almost
+ * entirely bright sky, so with the bug deliberately reintroduced the frame measured
+ * p05 0.46 with not one clipped pixel, and the assertion passed. A test that cannot
+ * fail on the bug it was written for is worse than no test, so this asserts the
+ * invariant itself instead: a grade, a vignette and film grain are display-referred
+ * operations and every one of them has to run after OutputPass. That holds whatever
+ * the camera happens to be looking at.
+ */
+test('tone mapping runs before the grade, the vignette and the grain', async ({ page }) => {
+  await page.goto('/pet.html?perf=1')
+  if (!(await hasWebgl2(page))) {
+    test.skip(true, 'no WebGL2 on this engine; the unsupported path is covered above')
+    return
+  }
+  await expect(page.locator('.pet-boot')).toHaveCount(0, { timeout: 180_000 })
+
+  const order = await page.evaluate(() => {
+    type U = Record<string, unknown> | undefined
+    const sc = (window as unknown as { __pet: { engine: { scene: {
+      setQuality: (q: string) => void
+      composer: { passes: { uniforms?: U }[] } | null
+    } } } }).__pet.engine.scene
+    sc.setQuality('high')                  // the tier every one of these passes lives in
+    return (sc.composer?.passes ?? []).map(p => {
+      const u = p.uniforms
+      if (!u) return 'other'
+      if ('toneMappingExposure' in u) return 'output'
+      if ('contrast' in u) return 'grade'
+      if ('darkness' in u) return 'vignette'
+      if ('grayscale' in u) return 'grain'
+      return 'other'
+    })
+  })
+
+  const output = order.indexOf('output')
+  expect(output, `no OutputPass in the chain: ${order.join(' -> ')}`).toBeGreaterThanOrEqual(0)
+  for (const displayReferred of ['grade', 'vignette', 'grain']) {
+    const at = order.indexOf(displayReferred)
+    if (at < 0) continue                   // not present at this tier, nothing to check
+    expect(at, `${displayReferred} runs in linear light, before tone mapping: `
+      + order.join(' -> ')).toBeGreaterThan(output)
+  }
+})

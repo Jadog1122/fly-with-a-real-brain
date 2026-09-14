@@ -158,6 +158,8 @@ export class Scene3D {
   private quality: Quality = 'high'
   private fpsTime = 0
   private fpsFrames = 0
+  /** Short for the first verdict, then long enough not to chase a single stutter. */
+  private fpsWindow = 1.2
   private lastDegrade = 0
   /** Smoothed frames per second, for the HUD and for anyone reporting a problem. */
   fps = 0
@@ -175,7 +177,12 @@ export class Scene3D {
     // and desaturates them; AgX holds hue through the rolloff, which is what a sunlit
     // meadow needs. It renders darker, hence the higher exposure.
     this.renderer.toneMapping = THREE.AgXToneMapping
-    this.renderer.toneMappingExposure = 1.15
+    // 1.4, measured, not guessed: with the grade finally running in display space the
+    // picture's median came out at 0.254 against the 0.31 this scene was calibrated to,
+    // and exposure moves it roughly proportionally again now that nothing downstream is
+    // clipping the blacks. At 1.4 the 95th percentile is still around 0.65, so the
+    // highlights have plenty of room left.
+    this.renderer.toneMappingExposure = 1.4
     host.appendChild(this.renderer.domElement)
 
     this.camera = new THREE.PerspectiveCamera(38, 1, 10, 4000)
@@ -763,17 +770,25 @@ export class Scene3D {
 
   private measureFps(dt: number) {
     if (!this.ready) return
-    if (dt > 0.2 || document.visibilityState !== 'visible') return
+    // Only throw away frames long enough to be a stall rather than a slow frame. The
+    // guard was 0.2 s, which is 5 fps - so a device slow enough to actually need the
+    // degrade discarded every sample it took and never degraded at all.
+    if (dt > 0.6 || document.visibilityState !== 'visible') return
     this.fpsTime += dt
     this.fpsFrames++
-    if (this.fpsTime < 3) return
+    if (this.fpsTime < this.fpsWindow) return
 
     const fps = this.fpsFrames / this.fpsTime
     this.fps = fps
     this.fpsTime = 0
     this.fpsFrames = 0
+    this.fpsWindow = 3
     const now = performance.now()
-    if (this.quality === 'low' || fps >= 24 || now - this.lastDegrade < 10_000) return
+    // The first verdict lands after ~1.2 s and the second 2.5 s later, so a phone that
+    // needs both steps is on its final tier inside four seconds. It used to be three
+    // seconds for the first and another ten before the second, and those thirteen
+    // seconds are the whole of the first impression.
+    if (this.quality === 'low' || fps >= 24 || now - this.lastDegrade < 2500) return
 
     this.lastDegrade = now
     this.onDegrade?.(this.quality === 'high' ? 'medium' : 'low')
@@ -822,8 +837,15 @@ export class Scene3D {
     const mossTops: { x: number; y: number; z: number; r: number }[] = []
     const wx = this.water ? this.water.position.x : w * 0.62
     const wz = this.water ? this.water.position.z : h * 0.44
-    for (let i = 0; i < 9; i++) {
-      const rad = 55 + r() * 95
+    // Cushions, not hills. These were 110 to 300 units across - up to thirty times the
+    // fly's body length and wider than the camera's minimum follow distance - so when
+    // the fly wandered behind one, the camera pulled itself all the way in and was
+    // still looking at a wall of moss with the fly hidden somewhere beyond it. At a
+    // third of the size they are what they were always meant to be: something the fly
+    // walks around, a few body lengths across, the way moss actually sits on a forest
+    // floor. More of them, so the ground reads as mossy at the same density.
+    for (let i = 0; i < 16; i++) {
+      const rad = 26 + r() * 48
       const geo = new THREE.SphereGeometry(rad, 20, 10, 0, Math.PI * 2, 0, Math.PI * 0.42)
       geo.setAttribute('uv1', geo.attributes.uv)
       const pos = geo.attributes.position as THREE.BufferAttribute
@@ -1155,16 +1177,24 @@ export class Scene3D {
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>
           uniform float uFadeNear;`)
-        .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+        // Only the two materials that actually dissolve get the discard compiled in.
+        // A shader containing discard anywhere loses early depth rejection for the
+        // whole material, even on fragments that never take the branch - and this was
+        // being compiled into all the windy foliage, which is most of the overdraw in
+        // the scene, to serve a uniform that is zero for nearly all of it. The program
+        // cache key already separated the two variants; now they differ.
+        .replace('#include <clipping_planes_fragment>', fadeNear > 0
+          ? `#include <clipping_planes_fragment>
           // Foliage right in front of the lens frames the shot at mid distance and
           // blocks it entirely up close. Dissolve it as it gets near, with a dithered
           // discard rather than alpha so nothing has to be depth-sorted.
-          if (uFadeNear > 0.0) {
+          {
             float dcam = length(vViewPosition);
             float vis = smoothstep(uFadeNear * 0.35, uFadeNear, dcam);
             float dither = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
             if (vis < dither) discard;
-          }`)
+          }`
+          : '#include <clipping_planes_fragment>')
         .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
           {
             // sun behind the surface, seen through it
@@ -1248,8 +1278,18 @@ export class Scene3D {
    * Low skips the composer entirely and renders straight to the screen.
    */
   private buildComposer(q: Quality) {
+    // EffectComposer.dispose() frees its own two ping-pong targets and nothing else -
+    // it never touches the passes. GTAOPass alone owns three render targets and two
+    // noise textures, UnrealBloomPass owns a five-level mip chain, BokehPass owns a
+    // depth target. So every quality change leaked all of them, at whatever the canvas
+    // size was: hundreds of megabytes of GPU memory per rebuild, and the renderer got
+    // progressively slower the more times the tier was switched. The adaptive degrade
+    // path calls this, which made a stutter that triggered a downgrade cause the next
+    // downgrade. Pass.dispose() is a no-op on the base class, so this is safe for all.
+    for (const pass of this.composer?.passes ?? []) pass.dispose()
     this.composer?.dispose()
     this.composer = null
+    this.bokeh = null
     if (q === 'low') return
 
     // Sizes here are CSS pixels, not drawing-buffer pixels. EffectComposer.setSize
@@ -1265,16 +1305,27 @@ export class Scene3D {
     // on silently turned anti-aliasing OFF - the renderer's antialias flag only applies
     // when drawing straight to the canvas. Give it a multisampled target instead. This
     // one is in buffer pixels, since it is the actual allocation.
+    // Multisampling a half-float target is pure memory bandwidth: at 2880x1800, 4x
+    // costs 166 MB of resolve every frame. Measured against 2x it bought nothing the
+    // depth of field and the grain were not already hiding, so both tiers get 2x.
     const target = new THREE.WebGLRenderTarget(w * dpr, h * dpr, {
       type: THREE.HalfFloatType,
-      samples: q === 'high' ? 4 : 2,
+      samples: 2,
     })
     const c = new EffectComposer(this.renderer, target)
     c.setSize(w, h)
     c.addPass(new RenderPass(this.scene, this.camera))
 
     if (q === 'high') {
-      const ao = new GTAOPass(this.scene, this.camera, w, h)
+      // Half resolution. Ambient occlusion was measured at 48 ms of a 103 ms frame -
+      // by far the most expensive thing in the scene - and it is a low-frequency
+      // signal: a soft darkening where surfaces meet, upsampled bilinearly on the way
+      // out. EffectComposer.addPass calls setSize with the buffer size, so the halving
+      // has to live in setSize rather than only in the constructor.
+      const ao = new GTAOPass(this.scene, this.camera, w >> 1, h >> 1)
+      const fullSize = ao.setSize.bind(ao)
+      ao.setSize = (width: number, height: number) =>
+        fullSize(Math.max(1, Math.round(width / 2)), Math.max(1, Math.round(height / 2)))
       ao.output = GTAOPass.OUTPUT.Default
       // the arena is ~760 units across and the props are small, so the sampling
       // radius is in tens of units, not the single-digit default
@@ -1304,6 +1355,24 @@ export class Scene3D {
       this.bokeh = null
     }
 
+    // Tone mapping and the sRGB conversion happen HERE, before the grade and the
+    // vignette, not after them.
+    //
+    // They used to be last, which meant the grade was pivoting around 0.5 in LINEAR
+    // light. BrightnessContrastShader computes (c - 0.5) / (1 - contrast) + 0.5, and
+    // mid grey in linear light is about 0.21, not 0.5 - so the pivot sat far up in the
+    // highlights and everything below linear 0.07, which is most of the picture, was
+    // driven negative and clipped to pure black. Measured over the frame: with the
+    // grade in linear light the picture's 25th percentile was 0.000 and its median
+    // 0.021; with it removed, 0.285 and 0.336. More than half of every frame was
+    // being crushed to black, which is why the meadow read as a dark hole with the
+    // fly invisible in it, and why no amount of exposure helped - tripling the
+    // exposure moved the median from 0.021 to 0.054, because the clip came after.
+    //
+    // A grade, a vignette and film grain are all display-referred operations. They
+    // belong after the image has been mapped to display, which is where they are now.
+    c.addPass(new OutputPass())
+
     const grade = new ShaderPass(BrightnessContrastShader)
     grade.uniforms.brightness.value = 0.0
     grade.uniforms.contrast.value = 0.14
@@ -1315,13 +1384,11 @@ export class Scene3D {
     c.addPass(vignette)
 
     if (q === 'high') {
-      // A trace of grain, last before output. Every photograph has some, and a
-      // perfectly clean frame is one of the things that makes render look like render.
-      // three's FilmPass is grain only in r169 - no scanlines - so it is usable as is.
+      // A trace of grain, last. Every photograph has some, and a perfectly clean frame
+      // is one of the things that makes render look like render. three's FilmPass is
+      // grain only in r169 - no scanlines - so it is usable as is.
       c.addPass(new FilmPass(0.14))
     }
-
-    c.addPass(new OutputPass())   // tone mapping and colour space, once, at the end
     this.composer = c
   }
 
@@ -1329,6 +1396,7 @@ export class Scene3D {
     this.quality = q
     this.fpsTime = 0
     this.fpsFrames = 0
+    this.fpsWindow = 1.2       // judge the new tier quickly too
     const dpr = devicePixelRatio || 1
     if (q === 'low') {
       this.renderer.setPixelRatio(1)
@@ -1340,7 +1408,13 @@ export class Scene3D {
       this.key.shadow.mapSize.set(1024, 1024)
       this.particleCap = 70
     } else {
-      this.renderer.setPixelRatio(Math.min(dpr, 2))
+      // 1.5, not 2. The frame is fill-rate bound almost exactly linearly - measured at
+      // 46.7 ms for 5.2 megapixels and 28.5 ms for 2.9 - and at 2x this tier ran at 16
+      // fps on an M3, which no amount of detail makes up for. Depth of field and the
+      // grain are both working on the same pixels, so the resolve is not what the eye
+      // is reading here anyway. The difference between the two is hard to find in a
+      // still and impossible in motion; the difference in frame rate is not.
+      this.renderer.setPixelRatio(Math.min(dpr, 1.5))
       this.renderer.shadowMap.enabled = true
       this.key.shadow.mapSize.set(2048, 2048)
       this.particleCap = 120

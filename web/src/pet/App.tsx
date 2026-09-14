@@ -95,7 +95,11 @@ export default function App() {
         }
       })
       .catch(err => setBoot({ kind: 'error', err: err instanceof Error ? err : new Error(String(err)) }))
-    if (import.meta.env.DEV) window.__pet = { engine: e }
+    // Also in production behind ?perf=1, so scripts/perf.mjs can measure the real
+    // shipped build - the frame rate was guesswork for far too long because nothing
+    // outside a dev server could reach the renderer.
+    if (import.meta.env.DEV || /(?:\?|&)perf=1(?:&|$)/.test(location.search))
+      window.__pet = { engine: e }
     const key = (ev: KeyboardEvent) => {
       const t = ev.target as HTMLElement | null
       if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return

@@ -135,7 +135,7 @@ async function configure(page, { quality, off = [], dpr = null }) {
       p.materialBokeh ? 'dof'
       : typeof p.updateGtaoMaterial === 'function' ? 'ao'
       : p.highPassUniforms ? 'bloom'
-      : p.uniforms && p.uniforms.grayscale !== undefined ? 'grain'
+      : p.uniforms && p.uniforms.grain !== undefined ? 'finish'
       : 'other'
     const sc = window.__pet.engine.scene
     sc.setQuality(quality)
@@ -179,8 +179,8 @@ const CONFIGS = [
   ['high - depth of field', { quality: 'high', off: ['dof'] }],
   ['high - ambient occlusion', { quality: 'high', off: ['ao'] }],
   ['high - bloom', { quality: 'high', off: ['bloom'] }],
-  ['high - film grain', { quality: 'high', off: ['grain'] }],
-  ['high - all four', { quality: 'high', off: ['dof', 'ao', 'bloom', 'grain'] }],
+  ['high - finish pass', { quality: 'high', off: ['finish'] }],
+  ['high - all four', { quality: 'high', off: ['dof', 'ao', 'bloom', 'finish'] }],
   ['high @ dpr 1.75', { quality: 'high', dpr: 1.75 }],
   ['high @ dpr 1.5', { quality: 'high', dpr: 1.5 }],
   ['high @ dpr 1.25', { quality: 'high', dpr: 1.25 }],

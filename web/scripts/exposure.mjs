@@ -23,9 +23,8 @@ await page.evaluate(() => new Promise(done => {
   real(() => real(done))
 }))
 const kind = `p => p.materialBokeh ? 'dof' : typeof p.updateGtaoMaterial === 'function' ? 'ao'
-  : p.highPassUniforms ? 'bloom' : p.uniforms && p.uniforms.grayscale !== undefined ? 'grain'
-  : p.uniforms && p.uniforms.darkness ? 'vignette'
-  : p.uniforms && p.uniforms.contrast ? 'grade' : 'other'`
+  : p.highPassUniforms ? 'bloom'
+  : p.uniforms && p.uniforms.grain !== undefined ? 'finish' : 'other'`
 const shot = async (name, off, exposure) => {
   await page.evaluate(({ off, exposure, kindSrc }) => {
     const kindFn = eval(kindSrc)
@@ -41,9 +40,8 @@ const base = await page.evaluate(() => window.__pet.engine.scene.renderer.toneMa
 console.log('toneMappingExposure =', base)
 await shot('shipped', [], base)
 await shot('no_ao', ['ao'], base)
-await shot('no_vignette', ['vignette'], base)
-await shot('no_grade', ['grade'], base)
-await shot('no_post', ['ao', 'vignette', 'grade', 'bloom', 'grain', 'dof'], base)
+await shot('no_finish', ['finish'], base)
+await shot('no_post', ['ao', 'bloom', 'finish', 'dof'], base)
 for (const m of [1.5, 2.0, 2.8]) await shot(`exp${m}`, [], base * m)
 await shot('shipped2', [], base)
 console.log('done')

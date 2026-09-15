@@ -17,9 +17,51 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js'
-import { FilmPass } from 'three/examples/jsm/postprocessing/FilmPass.js'
-import { VignetteShader } from 'three/examples/jsm/shaders/VignetteShader.js'
-import { BrightnessContrastShader } from 'three/examples/jsm/shaders/BrightnessContrastShader.js'
+// One display-referred finishing pass: three's BrightnessContrastShader, its
+// VignetteShader and its FilmPass grain, in that order, folded into a single
+// full-screen evaluation. Same formulas as the originals, so the picture is
+// unchanged; what changed is that the frame is read and written once, not three
+// times. FilmPass's grain formula is kept verbatim - it brightens very slightly
+// rather than staying centred, and the exposure was calibrated with that in place.
+const FinishShader = {
+  name: 'FinishShader',
+  uniforms: {
+    tDiffuse: { value: null as unknown },
+    brightness: { value: 0.0 },
+    contrast: { value: 0.0 },
+    offset: { value: 1.0 },
+    darkness: { value: 1.0 },
+    grain: { value: 0.0 },
+    time: { value: 0.0 },
+  },
+  vertexShader: /* glsl */ `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+    }`,
+  fragmentShader: /* glsl */ `
+    #include <common>
+    uniform sampler2D tDiffuse;
+    uniform float brightness;
+    uniform float contrast;
+    uniform float offset;
+    uniform float darkness;
+    uniform float grain;
+    uniform float time;
+    varying vec2 vUv;
+    void main() {
+      vec4 texel = texture2D( tDiffuse, vUv );
+      vec3 c = texel.rgb + vec3( brightness );
+      if ( contrast > 0.0 ) c = ( c - 0.5 ) / ( 1.0 - contrast ) + 0.5;
+      else                  c = ( c - 0.5 ) * ( 1.0 + contrast ) + 0.5;
+      vec2 v = ( vUv - vec2( 0.5 ) ) * vec2( offset );
+      c = mix( c, vec3( 1.0 - darkness ), dot( v, v ) );
+      float noise = rand( fract( vUv + time ) );
+      c = mix( c, c + c * clamp( 0.1 + noise, 0.0, 1.0 ), grain );
+      gl_FragColor = vec4( c, texel.a );
+    }`,
+}
 import { damp, damp3 } from 'maath/easing'
 import type { Quality } from './save'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
@@ -1248,6 +1290,7 @@ export class Scene3D {
   }
 
   private composer: EffectComposer | null = null
+  private finish: ShaderPass | null = null
   private bokeh: BokehPass | null = null
 
   /**
@@ -1295,6 +1338,7 @@ export class Scene3D {
     this.composer?.dispose()
     this.composer = null
     this.bokeh = null
+    this.finish = null
     if (q === 'low') return
 
     // Sizes here are CSS pixels, not drawing-buffer pixels. EffectComposer.setSize
@@ -1378,22 +1422,23 @@ export class Scene3D {
     // belong after the image has been mapped to display, which is where they are now.
     c.addPass(new OutputPass())
 
-    const grade = new ShaderPass(BrightnessContrastShader)
-    grade.uniforms.brightness.value = 0.0
-    grade.uniforms.contrast.value = 0.14
-    c.addPass(grade)
-
-    const vignette = new ShaderPass(VignetteShader)
-    vignette.uniforms.offset.value = 1.05
-    vignette.uniforms.darkness.value = 0.85
-    c.addPass(vignette)
-
-    if (q === 'high') {
-      // A trace of grain, last. Every photograph has some, and a perfectly clean frame
-      // is one of the things that makes render look like render. three's FilmPass is
-      // grain only in r169 - no scanlines - so it is usable as is.
-      c.addPass(new FilmPass(0.14))
-    }
+    // Grade, vignette and grain in ONE pass. They used to be two full-screen
+    // ShaderPasses plus a FilmPass on high - three reads and writes of the whole
+    // frame to apply three trivial per-pixel formulas that compose into one. Folding
+    // them together saves two full-screen round trips on high, and it is why medium
+    // has film grain now: on the tier most people actually see, the grain arrives at
+    // NEGATIVE cost, two passes having become one. (What medium still does not get -
+    // occlusion, bloom, depth of field - is priced out by the phones that live there:
+    // a mid-range phone GPU runs these frames roughly six times slower than the M3
+    // they were measured on, so the 2.5 ms ambient occlusion alone would eat half a
+    // 30 fps budget.)
+    const finish = new ShaderPass(FinishShader)
+    finish.uniforms.contrast.value = 0.14
+    finish.uniforms.offset.value = 1.05
+    finish.uniforms.darkness.value = 0.85
+    finish.uniforms.grain.value = q === 'high' ? 0.14 : 0.11
+    this.finish = finish
+    c.addPass(finish)
     this.composer = c
   }
 
@@ -1646,6 +1691,7 @@ export class Scene3D {
     this.updateShadowBox()
     this.updateFocus()
 
+    if (this.finish) this.finish.uniforms.time.value = (this.finish.uniforms.time.value + dt * 7) % 41
     if (this.composer) this.composer.render()
     else this.renderer.render(this.scene, this.camera)
   }

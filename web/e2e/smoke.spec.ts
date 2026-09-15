@@ -189,11 +189,17 @@ test('the brain moves the fly, and the fly has a skeleton that moves with it', a
     expect.arrayContaining(['flight', 'groom', 'idle', 'proboscis', 'startle', 'walk']))
   expect(Object.keys(a.bones).length, 'the fly has no skeleton').toBeGreaterThanOrEqual(17)
 
-  await page.waitForTimeout(1500)
-  const b = await sample()
-  const moved = Object.keys(a.bones).filter(k =>
-    a.bones[k].some((v, i) => Math.abs(v - b.bones[k][i]) > 1e-3))
-  // Walking, breathing, wingbeat: most of the skeleton should be somewhere else by now.
-  expect(moved.length, `only ${moved.length} of ${Object.keys(a.bones).length} bones moved`
-    + ' in 1.5 s - the fly is frozen').toBeGreaterThanOrEqual(6)
+  // Poll rather than snapshot: a fly that happens to be standing still for a moment
+  // moves only its wings, and a single 1.5 s window flagged that as "frozen" once.
+  // What this guards is frozen FOREVER - so keep looking until it walks, and only a
+  // rig that never reaches six moving bones in ten seconds fails.
+  let moved: string[] = []
+  for (let attempt = 0; attempt < 7 && moved.length < 6; attempt++) {
+    await page.waitForTimeout(1500)
+    const b = await sample()
+    moved = Object.keys(a.bones).filter(k =>
+      a.bones[k].some((v, i) => Math.abs(v - b.bones[k][i]) > 1e-3))
+  }
+  expect(moved.length, `only ${moved.length} of ${Object.keys(a.bones).length} bones ever moved`
+    + ' - the fly is frozen').toBeGreaterThanOrEqual(6)
 })

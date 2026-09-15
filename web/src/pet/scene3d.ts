@@ -1141,6 +1141,15 @@ export class Scene3D {
    * transmission needs its own render pass per frame and there are thousands of these.
    */
   private windify(mat: THREE.Material, height: number, sway: number, fadeNear = 0) {
+    // The near-camera dissolve is hardware alpha-to-coverage, its third incarnation.
+    // The first was a white-noise discard, which read as sand smeared over the whole
+    // frame. The second was a Bayer-matrix discard - structured, much better, but the
+    // 4x4 grid was still plainly visible as a screen across every fading blade. With
+    // multisampling on both render paths (the composer target and the canvas), the
+    // hardware can do this properly: alpha becomes the coverage mask, and at 2x the
+    // half-covered level resolves to genuine-looking translucency with no pattern at
+    // all. Still no blending and no sorting - depth behaves exactly as it did.
+    if (fadeNear > 0) mat.alphaToCoverage = true
     mat.onBeforeCompile = shader => {
       shader.uniforms.uTime = this.windTime
       shader.uniforms.uHeight = { value: height }
@@ -1177,38 +1186,20 @@ export class Scene3D {
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>
           uniform float uFadeNear;`)
-        // Only the two materials that actually dissolve get the discard compiled in.
-        // A shader containing discard anywhere loses early depth rejection for the
-        // whole material, even on fragments that never take the branch - and this was
-        // being compiled into all the windy foliage, which is most of the overdraw in
-        // the scene, to serve a uniform that is zero for nearly all of it. The program
-        // cache key already separated the two variants; now they differ.
+        // Only the two materials that actually dissolve pay for it - the variant is
+        // split by the program cache key, so the bulk foliage compiles without any of
+        // this and keeps its early depth rejection.
         .replace('#include <clipping_planes_fragment>', fadeNear > 0
           ? `#include <clipping_planes_fragment>
-          // Foliage right in front of the lens frames the shot at mid distance and
-          // blocks it entirely up close. Dissolve it as it gets near, with a dithered
-          // discard rather than alpha so nothing has to be depth-sorted.
-          //
-          // The threshold is an ORDERED dither, not white noise. It used to be
-          // fract(sin(dot(gl_FragCoord.xy, ...)) * 43758.5453) - the standard one-line
-          // hash - and the result was sand. A per-pixel random threshold has no
-          // structure, so a half-dissolved leaf is a random half of its pixels, and
-          // with a lot of geometry inside the fade band that reads as static smeared
-          // over the whole frame rather than as something fading. A Bayer matrix puts
-          // the kept pixels on a regular fine grid instead, which the eye reads as a
-          // screen. Same cost, same one discard, and it is what everyone uses.
+          float fadeVis;
           {
             float dcam = length(vViewPosition);
-            float vis = smoothstep(uFadeNear * 0.35, uFadeNear, dcam);
-            const mat4 bayer = mat4( 0.0,  8.0,  2.0, 10.0,
-                                    12.0,  4.0, 14.0,  6.0,
-                                     3.0, 11.0,  1.0,  9.0,
-                                    15.0,  7.0, 13.0,  5.0);
-            int bx = int(mod(gl_FragCoord.x, 4.0));
-            int by = int(mod(gl_FragCoord.y, 4.0));
-            if (vis < (bayer[bx][by] + 0.5) / 16.0) discard;
+            fadeVis = smoothstep(uFadeNear * 0.35, uFadeNear, dcam);
           }`
           : '#include <clipping_planes_fragment>')
+        .replace('vec4 diffuseColor = vec4( diffuse, opacity );', fadeNear > 0
+          ? `vec4 diffuseColor = vec4( diffuse, opacity * fadeVis );`
+          : 'vec4 diffuseColor = vec4( diffuse, opacity );')
         .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
           {
             // sun behind the surface, seen through it

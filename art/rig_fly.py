@@ -294,8 +294,11 @@ for f in range(GROOM_FRAMES + 1):
     t = f / GROOM_FRAMES
     for i, leg in enumerate(['leg.L.1', 'leg.R.1']):
         r = _m.sin((t + i * 0.5) * 2 * _m.pi)
-        key(pose[f'{leg}.upper'], f, rot=(1.05 + r * 0.30, 0, 0))
-        key(pose[f'{leg}.lower'], f, rot=(1.30 - r * 0.35, 0, 0))
+        # Up past the horizontal and folded hard, so the tarsi actually reach the face.
+        # The first pass used 1.05 rad and the legs just pointed at the ground ahead -
+        # rendered in isolation it read as reaching, not grooming.
+        key(pose[f'{leg}.upper'], f, rot=(1.75 + r * 0.25, 0, 0.10 if i == 0 else -0.10))
+        key(pose[f'{leg}.lower'], f, rot=(1.55 - r * 0.45, 0, 0))
     key(pose['thorax'], f, rot=(0.10, 0, 0))
 
 # flight: a single held pose the game blends in by weight - legs tucked back and up
@@ -313,6 +316,21 @@ for f in (0, 2):
 act = new_action('proboscis')
 key(pose['proboscis'], 0, scale=(1, 0.02, 1))
 key(pose['proboscis'], 12, scale=(1, 1, 1))
+
+# startle: the whole thorax rears up off the front legs, which brace. A held pose the
+# game blends in by weight, exactly like flight - it used to be a rotateX() applied
+# after the mixer, which accumulated without bound because the mixer only rewrites a
+# bone when the blended value CHANGES, and a fly standing still never changes.
+act = new_action('startle')
+for f in (0, 2):
+    key(pose['thorax'], f, rot=(-0.34, 0, 0))
+    for leg in TRIPOD:
+        if leg.endswith('1'):
+            key(pose[f'{leg}.upper'], f, rot=(0.55, 0, 0))
+            key(pose[f'{leg}.lower'], f, rot=(0.15, 0, 0))
+        elif leg.endswith('3'):
+            key(pose[f'{leg}.upper'], f, rot=(-0.20, 0, 0))
+            key(pose[f'{leg}.lower'], f, rot=(0.35, 0, 0))
 
 # idle: the rest pose, held. This one exists for a mechanical reason. three's
 # AnimationMixer takes a weighted AVERAGE of whatever is playing, so a walk clip alone

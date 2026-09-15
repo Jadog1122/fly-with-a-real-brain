@@ -186,7 +186,7 @@ test('the brain moves the fly, and the fly has a skeleton that moves with it', a
   // The asset carries these; if Blender stops exporting one, the blend silently loses
   // a pose rather than erroring.
   expect(a.clips, 'the rigged asset is missing clips').toEqual(
-    expect.arrayContaining(['flight', 'groom', 'idle', 'proboscis', 'walk']))
+    expect.arrayContaining(['flight', 'groom', 'idle', 'proboscis', 'startle', 'walk']))
   expect(Object.keys(a.bones).length, 'the fly has no skeleton').toBeGreaterThanOrEqual(17)
 
   await page.waitForTimeout(1500)

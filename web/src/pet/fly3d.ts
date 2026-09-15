@@ -83,7 +83,6 @@ export class Fly3D {
   private mixer?: THREE.AnimationMixer
   private act: Record<string, THREE.AnimationAction> = {}
   private wings: { bone: THREE.Object3D; rest: THREE.Quaternion }[] = []
-  private thorax?: THREE.Object3D
   private wingMats: THREE.MeshStandardMaterial[] = []
   private eyeMat?: THREE.MeshStandardMaterial
 
@@ -143,7 +142,6 @@ export class Fly3D {
       const b = find(n)
       if (b) this.wings.push({ bone: b, rest: b.quaternion.clone() })
     }
-    this.thorax = find('thorax')
     src.traverse(o => {
       const m = o as THREE.Mesh
       if (!m.isMesh) return
@@ -165,6 +163,19 @@ export class Fly3D {
 
     this.mixer = new THREE.AnimationMixer(src)
     for (const clip of gltf.animations) {
+      // Blender's exporter samples EVERY bone into every action, so each clip arrives
+      // carrying rest-pose tracks for bones it was never meant to touch. That is not
+      // harmless: the proboscis clip at weight 1 was writing the rest pose into all
+      // twelve leg bones, diluting walk, groom and flight to half strength - and idle
+      // was writing scale 1 into the proboscis bone, which averaged with the
+      // proboscis clip's 0.02 to exactly the 0.51 the probe measured. Each clip keeps
+      // only what it owns: the proboscis clip its one bone, the pose clips the legs
+      // and thorax. Nothing owns the wings (the wingbeat is code) or the root.
+      clip.tracks = clip.tracks.filter(t => {
+        const bone = t.name.split('.')[0]
+        if (clip.name === 'proboscis') return bone === 'proboscis'
+        return /^leg|^thorax/.test(bone)
+      })
       const a = this.mixer.clipAction(clip)
       a.play()
       a.enabled = true
@@ -223,12 +234,14 @@ export class Fly3D {
     // as a whole stride - it is the only thing in the average.  `idle` takes up the
     // slack so a partial blend is a partial pose.
     const wFlight = this.escapeBlend
-    const wGroom = this.groomBlend * (1 - wFlight)
-    const wWalk = moving * (1 - wFlight - wGroom)
+    const wStartle = o.startle * (1 - wFlight)
+    const wGroom = this.groomBlend * (1 - wFlight - wStartle)
+    const wWalk = moving * (1 - wFlight - wStartle - wGroom)
     this.act.flight?.setEffectiveWeight(wFlight)
+    this.act.startle?.setEffectiveWeight(wStartle)
     this.act.groom?.setEffectiveWeight(wGroom)
     this.act.walk?.setEffectiveWeight(wWalk)
-    this.act.idle?.setEffectiveWeight(Math.max(0, 1 - wFlight - wGroom - wWalk))
+    this.act.idle?.setEffectiveWeight(Math.max(0, 1 - wFlight - wStartle - wGroom - wWalk))
 
     // The brain owns the phase.  1.6 is the stride-per-radian factor the procedural
     // version used, kept so the gait reads at the same rate against the same speed.
@@ -256,9 +269,11 @@ export class Fly3D {
     BEAT_Q.setFromEuler(BEAT_EULER)
     for (const w of this.wings) w.bone.quaternion.copy(w.rest).multiply(BEAT_Q)
 
-    // Startled flies rear up.  Applied on top of whatever the blend left the thorax at,
-    // in the thorax's own frame, so it composes with the walk's bob instead of fighting it.
-    if (this.thorax && o.startle > 0.001) this.thorax.rotateX(o.startle * .3)
+    // Startle is a clip in the weighted set like everything else. It was a rotateX()
+    // applied here, after the mixer - which accumulated without bound, because the
+    // mixer only rewrites a bone when the blended pose CHANGES, and a fly standing
+    // still evaluates to the same pose every frame, so the manual rotation was never
+    // overwritten. Post-mixer writes are reserved for bones no clip owns: the wings.
 
     // Squash on landing, stretch on takeoff.
     const air = o.airborne

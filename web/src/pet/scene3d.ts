@@ -1231,16 +1231,16 @@ export class Scene3D {
         // Only the two materials that actually dissolve pay for it - the variant is
         // split by the program cache key, so the bulk foliage compiles without any of
         // this and keeps its early depth rejection.
-        .replace('#include <clipping_planes_fragment>', fadeNear > 0
-          ? `#include <clipping_planes_fragment>
-          float fadeVis;
-          {
-            float dcam = length(vViewPosition);
-            fadeVis = smoothstep(uFadeNear * 0.35, uFadeNear, dcam);
-          }`
-          : '#include <clipping_planes_fragment>')
+        // Self-contained: declaration, distance and use in the one injected statement.
+        // The first version declared fadeVis inside the clipping-planes include and
+        // used it here - but in three's fragment template this line comes FIRST, so
+        // the variable was read before it existed and the whole material failed to
+        // compile. WebKit's CI run reported it; Chromium had silently stopped
+        // rendering the litter and the arching grass, which made the a2c screenshots
+        // look cleaner than they had any right to.
         .replace('vec4 diffuseColor = vec4( diffuse, opacity );', fadeNear > 0
-          ? `vec4 diffuseColor = vec4( diffuse, opacity * fadeVis );`
+          ? `float fadeVis = smoothstep(uFadeNear * 0.35, uFadeNear, length(vViewPosition));
+          vec4 diffuseColor = vec4( diffuse, opacity * fadeVis );`
           : 'vec4 diffuseColor = vec4( diffuse, opacity );')
         .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
           {

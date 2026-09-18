@@ -23,6 +23,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         pet: resolve(__dirname, 'pet.html'),
+        how: resolve(__dirname, 'how.html'),
       },
       output: {
         // Both pages are three.js on first paint - the explorer IS the point cloud and

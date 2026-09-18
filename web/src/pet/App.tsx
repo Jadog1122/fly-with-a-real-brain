@@ -217,6 +217,8 @@ export default function App() {
                   aria-expanded={showSettings}
                   onClick={() => { setShowSettings(v => !v); setConfirmReset(false) }}>⚙</button>
           <a className="rpg-ui-btn" href="./index.html">Explorer</a>
+          {/* the tutorial: what this thing is, told so a ten-year-old can follow it */}
+          <a className="rpg-ui-btn" href="./how.html" title="What is actually deciding, and how">How?</a>
         </div>
       </div>
 

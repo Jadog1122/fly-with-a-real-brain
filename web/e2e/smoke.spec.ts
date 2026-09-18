@@ -203,3 +203,31 @@ test('the brain moves the fly, and the fly has a skeleton that moves with it', a
   expect(moved.length, `only ${moved.length} of ${Object.keys(a.bones).length} bones ever moved`
     + ' - the fly is frozen').toBeGreaterThanOrEqual(6)
 })
+
+/**
+ * The tutorial page: static, bilingual, and it carries the one interactive thing the
+ * whole explanation leans on - the leaky-cup neuron. If the cup stops firing, the
+ * page still "loads" fine, so the test taps it the way a ten-year-old would.
+ */
+test('the tutorial page teaches in both languages and the cup fires', async ({ page }) => {
+  const errors: string[] = []
+  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()) })
+  await page.addInitScript(() => localStorage.setItem('fly-lang', 'zh'))
+  await page.goto('/how.html')
+
+  await expect(page.locator('html')).toHaveAttribute('data-lang', 'zh')
+  await expect(page.getByRole('heading', { name: '它没有剧本' })).toBeVisible()
+
+  // the toggle swaps every paired element at once
+  await page.locator('#lang-btn').click()
+  await expect(page.locator('html')).toHaveAttribute('data-lang', 'en')
+  await expect(page.getByRole('heading', { name: 'It has no script' })).toBeVisible()
+
+  // four quick signals beat the leak and cross the threshold exactly once
+  const btn = page.locator('#drip-btn')
+  await btn.scrollIntoViewIfNeeded()
+  for (let i = 0; i < 4; i++) await btn.click()
+  await expect(page.locator('#spike-count')).not.toHaveText('0')
+
+  expect(errors, `console errors: ${errors.join(' | ')}`).toEqual([])
+})

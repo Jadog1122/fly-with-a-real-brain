@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="zh-CN" data-lang="zh" data-theme="fly">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>它没有剧本 — 这只苍蝇的原理</title>
+<meta name="description" content="45,808 个真苍蝇神经细胞怎么在你的手机里投票走路 — 讲给 10 岁的你 · How 45,808 real fly neurons vote inside your phone, told for a ten-year-old" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🧠</text></svg>" />
+<script>
+  // Before the first paint: last choice wins, otherwise the phone's own language.
+  try {
+    var l = localStorage.getItem('fly-lang')
+      || (/^zh/i.test(navigator.language) ? 'zh' : 'en')
+    document.documentElement.dataset.lang = l
+    document.documentElement.lang = l === 'zh' ? 'zh-CN' : 'en'
+  } catch (e) { /* the zh default in the markup stands */ }
+</script>
+</head>
+<body>
+
+<main class="wrap">
+
+  <button class="lang-toggle" id="lang-btn" type="button" aria-label="switch language">
+    <span class="zh">EN</span><span class="en">中文</span>
+  </button>
+
+  <!-- ============================================================ hero -->
+  <header class="hero-fly">
+    <div class="badge badge-outline badge-warning">
+      <span class="zh">讲给好奇的人 · 10 岁也能懂</span>
+      <span class="en">for curious people · age 10 and up</span>
+    </div>
+    <h1><span class="zh">它没有剧本</span><span class="en">It has no script</span></h1>
+    <p class="lead zh">
+      你看到的每一步路、每一次洗脸、每一次起飞,都<b>不是</b>程序员写的「如果…就…」。是 <b>45,808 个真苍蝇的神经细胞</b>,在你的手机里一秒钟放电一万步,<b>投票</b>投出来的。
+    </p>
+    <p class="lead en">
+      Every step it takes, every face-wash, every take-off — <b>none</b> of it is
+      an "if this, then that" written by a programmer. It is <b>45,808 nerve cells
+      from a real fly</b>, stepping ten thousand times a second inside your phone,
+      <b>voting</b>.
+    </p>
+    <div class="hero-btns">
+      <a class="btn btn-warning" href="./pet.html"><span class="zh">先去玩 🪰</span><span class="en">Go play first 🪰</span></a>
+      <a class="btn btn-ghost" href="#pipeline"><span class="zh">往下看原理 ↓</span><span class="en">How it works ↓</span></a>
+    </div>
+  </header>
+
+  <!-- ============================================================ pipeline -->
+  <section id="pipeline">
+    <h2><span class="zh">整件事,一共五步</span><span class="en">The whole thing, in five steps</span></h2>
+    <ul class="steps steps-vertical">
+      <li class="step step-warning"><span class="step-line">
+        <span class="zh"><b>你放下一样东西</b> 🍬 —— 比如一颗糖</span>
+        <span class="en"><b>You put something down</b> 🍬 — say, a drop of sugar</span>
+      </span></li>
+      <li class="step step-warning"><span class="step-line">
+        <span class="zh"><b>感觉细胞被点亮</b> —— 它脚上的甜味细胞尝到了</span>
+        <span class="en"><b>Sense cells light up</b> — the sweet-taste cells on its feet taste it</span>
+      </span></li>
+      <li class="step step-warning"><span class="step-line">
+        <span class="zh"><b>信号在 45,808 个细胞里乱跑</b> —— 像传纸条,一秒一万轮</span>
+        <span class="en"><b>Signals race through 45,808 cells</b> — like passing notes, ten thousand rounds a second</span>
+      </span></li>
+      <li class="step step-warning"><span class="step-line">
+        <span class="zh"><b>七条「电话线」送出命令</b> —— 走!转!吃!跳!</span>
+        <span class="en"><b>Seven "phone lines" carry the orders out</b> — walk! turn! eat! jump!</span>
+      </span></li>
+      <li class="step step-warning"><span class="step-line">
+        <span class="zh"><b>身体照做</b> —— 我们只是把电话线接到了腿上</span>
+        <span class="en"><b>The body obeys</b> — all we did was wire those lines to the legs</span>
+      </span></li>
+    </ul>
+    <p class="dim"><span class="zh">下面把每一步拆开讲。</span><span class="en">Now let's take each step apart.</span></p>
+  </section>
+
+  <!-- ============================================================ the map -->
+  <section>
+    <h2><span class="zh">这张「大脑地图」是真的</span><span class="en">The brain map is real</span></h2>
+    <div class="card bg-base-200 card-border">
+      <div class="card-body">
+        <p class="zh">
+          科学家把一只真果蝇的脑子,切成了<b>几千片超级薄的薄片</b>
+          (每片比头发丝还薄得多),用电子显微镜一张一张拍下来,
+          再把每个细胞的形状描出来,数清楚<b>谁连着谁</b>。
+        </p>
+        <p class="en">
+          Scientists took the brain of one real fruit fly and cut it into
+          <b>thousands of incredibly thin slices</b> — each far thinner than a
+          hair — photographed every slice under an electron microscope, then
+          traced each cell and counted <b>who connects to whom</b>.
+        </p>
+        <p class="zh">
+          这个工程叫 <b>FlyWire</b>,全世界的科学家和志愿者
+          (其中不少是普通玩家!)一起干了好几年,才画完这张图:
+        </p>
+        <p class="en">
+          The project is called <b>FlyWire</b>. Scientists and volunteers all
+          over the world — many of them ordinary gamers! — spent years on the
+          map:
+        </p>
+        <div class="stats-grid">
+          <div class="stat-tile"><div class="n">138,639</div><div class="l"><span class="zh">个神经细胞(整个脑)</span><span class="en">nerve cells (whole brain)</span></div></div>
+          <div class="stat-tile"><div class="n">15,091,983</div><div class="l"><span class="zh">条连接(叫「突触」)</span><span class="en">connections ("synapses")</span></div></div>
+          <div class="stat-tile"><div class="n">45,808</div><div class="l"><span class="zh">个装进了这个网页</span><span class="en">cells loaded into this page</span></div></div>
+          <div class="stat-tile"><div class="n">10,000</div><div class="l"><span class="zh">步 / 秒 = 和真苍蝇一样快</span><span class="en">steps / s = real-fly speed</span></div></div>
+        </div>
+        <p class="dim zh">
+          我们从整张图里取出和「感觉 → 决定 → 动作」最相关的那 45,808 个细胞,
+          连接原封不动,装进你的浏览器。每个细胞怎么放电,用的是
+          Shiu 等科学家论文里的规则。
+        </p>
+        <p class="dim en">
+          We took the 45,808 cells most involved in "sense → decide → act",
+          kept every connection exactly as mapped, and loaded them into your
+          browser. The firing rules come from the published model by Shiu and
+          colleagues.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ the cup -->
+  <section>
+    <h2><span class="zh">一个神经细胞 = 一个会漏水的小杯子</span><span class="en">One nerve cell = one leaky cup</span></h2>
+    <div class="card bg-base-200 card-border">
+      <div class="card-body">
+        <p class="zh">神经细胞不会思考。它只会一件事:<b>攒信号,攒够了就「啪」一下放电。</b></p>
+        <p class="en">A nerve cell does not think. It does exactly one thing: <b>it collects signal, and when there's enough — snap — it fires.</b></p>
+        <ul class="cup-rules zh">
+          <li>💧 别的细胞放电,就往它的杯子里<b>倒一点水</b></li>
+          <li>🕳️ 杯底有个小洞,水一直在<b>慢慢漏掉</b>——所以要倒得够快才攒得起来</li>
+          <li>⚡ 水位碰到红线 → <b>放电!</b>然后杯子倒空,重新攒</li>
+          <li>🥄 还有些连接不是倒水,是<b>舀水</b>(叫「抑制」),专门劝它闭嘴</li>
+        </ul>
+        <ul class="cup-rules en">
+          <li>💧 When another cell fires, it <b>pours a little water</b> into this one's cup</li>
+          <li>🕳️ The cup has a small hole — water <b>keeps leaking out</b>, so the pouring has to be fast enough</li>
+          <li>⚡ Water reaches the red line → <b>it fires!</b> — then the cup empties and starts over</li>
+          <li>🥄 Some connections don't pour, they <b>scoop water out</b> ("inhibition") — their whole job is saying <i>shush</i></li>
+        </ul>
+
+        <div class="cup-demo" id="cup-demo">
+          <div class="cup-col">
+            <div class="cup">
+              <div class="cup-threshold"></div>
+              <div class="cup-water" id="cup-water"></div>
+            </div>
+            <div class="dim cup-cap"><span class="zh">← 红线 = 放电线</span><span class="en">← red line = firing line</span></div>
+          </div>
+          <div class="cup-col cup-mid">
+            <button class="uv-drip" id="drip-btn"><span class="zh">💧 给它一点信号</span><span class="en">💧 Give it a signal</span></button>
+            <div class="dim"><span class="zh">快速连点,别让水漏光!</span><span class="en">Tap fast — beat the leak!</span></div>
+            <div class="spark" id="spark">⚡ <span class="zh">放电</span><span class="en">fired</span> <b id="spike-count">0</b> <span class="zh">次</span><span class="en">×</span></div>
+          </div>
+          <div class="cup-col">
+            <div class="bulb" id="bulb">💡</div>
+            <div class="dim cup-cap"><span class="zh">它一放电,下游的<br />细胞就收到一滴水</span><span class="en">each spike pours a drop<br />into the next cell's cup</span></div>
+          </div>
+        </div>
+
+        <p class="dim zh">
+          科学家管这个叫「漏水的积分放电」模型(leaky integrate-and-fire)。你脑子里也是这么工作的——只不过你有 <b>860&nbsp;亿</b>个杯子。
+        </p>
+        <p class="dim en">
+          Scientists call this the <b>leaky integrate-and-fire</b> model. Your
+          brain works the same way — you just have <b>86&nbsp;billion</b> cups.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ senses -->
+  <section>
+    <h2><span class="zh">你点的每样东西,都是一种「感觉」</span><span class="en">Everything you place is a sensation</span></h2>
+    <div class="card bg-base-200 card-border">
+      <div class="card-body">
+        <p><span class="zh">游戏下面那排按钮,每个都会点亮一批<b>真实存在</b>的感觉细胞:</span>
+           <span class="en">Each button in the game's tray lights up a set of sense cells that <b>really exist</b>:</span></p>
+        <div class="sense-list">
+          <div class="sense"><span class="s-e">🍬</span><b><span class="zh">Sugar 糖</span><span class="en">Sugar</span></b>
+            <span><span class="zh">脚和口器上的甜味细胞——所以它要<b>走到糖上</b>才尝得到!</span><span class="en">Sweet-taste cells on its feet and mouth — it has to <b>step on the sugar</b> to taste it!</span></span></div>
+          <div class="sense"><span class="s-e">☠️</span><b><span class="zh">Bitter 苦</span><span class="en">Bitter</span></b>
+            <span><span class="zh">苦味细胞。苦=可能有毒,赶紧躲开</span><span class="en">Bitter cells. Bitter = maybe poison, back away</span></span></div>
+          <div class="sense"><span class="s-e">🛸</span><b><span class="zh">Looming 逼近</span><span class="en">Looming</span></b>
+            <span><span class="zh">眼睛看到「影子越来越大」=有东西朝我砸过来!</span><span class="en">The eyes see a shadow growing fast = something is coming right at me!</span></span></div>
+          <div class="sense"><span class="s-e">✨</span><b><span class="zh">Dust 灰尘</span><span class="en">Dust</span></b>
+            <span><span class="zh">身上 <b>1,417 根小毛</b>(鬃毛)感到有东西落上来</span><span class="en"><b>1,417 tiny hairs</b> (bristles) feel specks landing on its body</span></span></div>
+          <div class="sense"><span class="s-e">〰️</span><b><span class="zh">Vibration 震动</span><span class="en">Vibration</span></b>
+            <span><span class="zh">腿感到地面在抖</span><span class="en">Its legs feel the ground shaking</span></span></div>
+          <div class="sense"><span class="s-e">🍄</span><b><span class="zh">Geosmin 泥土味</span><span class="en">Geosmin</span></b>
+            <span><span class="zh">雨后泥土蘑菇的气味,果蝇的最爱</span><span class="en">The smell of wet earth and mushrooms — a fruit fly favourite</span></span></div>
+        </div>
+        <p><span class="zh">用手指<b>直接戳它</b> = 同时碰到它全身 1,417 根小毛。难怪它吓一跳。</span>
+           <span class="en"><b>Poking it</b> with your finger = touching all 1,417 hairs at once. No wonder it jumps.</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ the seven wires -->
+  <section>
+    <h2><span class="zh">七条电话线</span><span class="en">Seven phone lines</span></h2>
+    <div class="card bg-base-200 card-border">
+      <div class="card-body">
+        <p class="zh">
+          想一想:脑子在头里,腿长在身上,命令怎么送过去?
+          靠几条又粗又快的「下行神经」——<b>大脑通往身体的电话线</b>。游戏右边那七条会动的杠,就是我们在<b>偷听</b>这七路电话:
+        </p>
+        <p class="en">
+          Think about it: the brain sits in the head, the legs are on the body —
+          how do orders travel? Through a few thick, fast "descending neurons":
+          <b>the brain's phone lines to the body</b>. The seven moving bars in
+          the game are us <b>listening in</b> on those calls:
+        </p>
+        <div class="dn-list">
+          <div class="dn"><span class="dn-bar" style="--w:62%"></span><b>Walk forwards</b><i>P9</i>
+            <span><span class="zh">往前走</span><span class="en">go forward</span></span></div>
+          <div class="dn"><span class="dn-bar" style="--w:38%"></span><b>Steer ×2</b><i>DNa01 / DNa02</i>
+            <span><span class="zh">转弯,两对方向盘</span><span class="en">turning — two pairs of steering wheels</span></span></div>
+          <div class="dn"><span class="dn-bar" style="--w:16%"></span><b>Walk backwards</b><i>MDN</i>
+            <span><span class="zh">倒车。科学家给它的外号:「月球漫步」细胞</span><span class="en">reverse gear — scientists nicknamed them the "moonwalker" cells</span></span></div>
+          <div class="dn"><span class="dn-bar" style="--w:90%"></span><b>Jump and fly away</b><i>Giant Fibre</i>
+            <span><span class="zh">全脑最快的一根线,专管逃命:一放电就蹬腿起飞</span><span class="en">the fastest wire in the whole brain, reserved for escape: one spike and the legs launch</span></span></div>
+          <div class="dn"><span class="dn-bar" style="--w:30%"></span><b>Put its tongue out</b><i>MN9</i>
+            <span><span class="zh">伸出口器,吃!</span><span class="en">extend the mouthparts — eat!</span></span></div>
+          <div class="dn"><span class="dn-bar" style="--w:24%"></span><b>Clean its antennae</b><i>aDN1</i>
+            <span><span class="zh">抬前腿洗脸、擦触角</span><span class="en">raise the front legs, wash face, wipe antennae</span></span></div>
+        </div>
+        <p class="dim"><span class="zh">杠越长 = 那根线一秒放电的次数越多 = 命令喊得越响。</span>
+          <span class="en">Longer bar = more spikes per second on that line = the order is shouted louder.</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ honesty -->
+  <section>
+    <h2><span class="zh">老实说:哪些是真的,哪些是我们做的</span><span class="en">Honestly: what's real, and what's ours</span></h2>
+    <div class="honest">
+      <div class="card bg-base-200 card-border">
+        <div class="card-body">
+          <h3 class="ok"><span class="zh">✔ 真的</span><span class="en">✔ Real</span></h3>
+          <ul class="zh">
+            <li>45,808 个细胞和它们之间的每一条连接</li>
+            <li>每个细胞什么时候放电(论文里的规则)</li>
+            <li>它的每一个「决定」:吃不吃、跳不跳、往哪转</li>
+          </ul>
+          <ul class="en">
+            <li>The 45,808 cells and every connection between them</li>
+            <li>When each cell fires (the published rules)</li>
+            <li>Every "decision": to eat or not, to jump or not, where to turn</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card bg-base-200 card-border">
+        <div class="card-body">
+          <h3 class="ours"><span class="zh">✎ 我们做的</span><span class="en">✎ Ours</span></h3>
+          <ul class="zh">
+            <li>3D 草地、镜头、光——它的「玩具世界」</li>
+            <li>把「放电快慢」翻译成腿和翅膀的动作</li>
+            <li>一个很小的「出去逛逛」推力(不然它会一直发呆)</li>
+            <li>「Fed 饱不饱」那条,是我们帮它记的账</li>
+          </ul>
+          <ul class="en">
+            <li>The 3D meadow, the camera, the light — its toy world</li>
+            <li>Translating firing rates into leg and wing motion</li>
+            <li>One tiny "go wander" nudge (or it would daydream forever)</li>
+            <li>The "Fed" bar — bookkeeping we do on its behalf</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div role="alert" class="alert">
+      <span class="zh">一句话:<b>大脑是真的,身体和世界是我们给这颗大脑造的玩具。</b></span>
+      <span class="en">In one line: <b>the brain is real; the body and the world are toys we built for that brain.</b></span>
+    </div>
+  </section>
+
+  <!-- ============================================================ experiments -->
+  <section>
+    <h2><span class="zh">回去做三个小实验</span><span class="en">Three experiments to try</span></h2>
+
+    <div class="collapse collapse-arrow bg-base-200 exp">
+      <input type="checkbox" />
+      <div class="collapse-title"><b><span class="zh">实验一 🍬</span><span class="en">Experiment 1 🍬</span></b> <span class="zh">让它伸舌头</span><span class="en">Make it stick its tongue out</span></div>
+      <div class="collapse-content">
+        <p class="zh">把糖放在它<b>前面一点点</b>。它走到糖上时,看右边:
+        <b>Put its tongue out (MN9)</b> 的杠会亮起来——然后它真的伸出口器开吃。</p>
+        <p class="en">Drop sugar <b>just ahead of it</b>. When it walks onto the drop,
+        watch the panel: the <b>Put its tongue out (MN9)</b> bar lights up — and
+        then it really extends its mouthparts and eats.</p>
+        <p class="dim"><span class="zh">糖必须放得近,因为甜味细胞长在<b>脚上</b>。踩到才算尝到。</span>
+          <span class="en">The sugar has to be close: the sweet cells are on its <b>feet</b>. Stepping on it is tasting it.</span></p>
+      </div>
+    </div>
+
+    <div class="collapse collapse-arrow bg-base-200 exp">
+      <input type="checkbox" />
+      <div class="collapse-title"><b><span class="zh">实验二 ✨</span><span class="en">Experiment 2 ✨</span></b> <span class="zh">让它洗脸</span><span class="en">Make it wash its face</span></div>
+      <div class="collapse-content">
+        <p class="zh">把 Dust 放它身边。1,417 根小毛报警,
+        <b>Clean its antennae (aDN1)</b> 亮起——它抬起前腿开始搓脸。</p>
+        <p class="en">Place Dust next to it. The 1,417 hairs raise the alarm,
+        <b>Clean its antennae (aDN1)</b> lights up — and it lifts its front legs
+        and starts scrubbing.</p>
+      </div>
+    </div>
+
+    <div class="collapse collapse-arrow bg-base-200 exp">
+      <input type="checkbox" />
+      <div class="collapse-title"><b><span class="zh">实验三 👉</span><span class="en">Experiment 3 👉</span></b> <span class="zh">看全脑最快的一根神经</span><span class="en">See the fastest wire in the brain</span></div>
+      <div class="collapse-content">
+        <p class="zh">直接点它。<b>Jump and fly away</b> 会<b>瞬间拉满</b>——巨纤维放电,
+        蹬腿,起飞。</p>
+        <p class="en">Tap the fly itself. <b>Jump and fly away</b> <b>slams to full</b> —
+        the Giant Fibre fires, the legs kick, and it's airborne.</p>
+        <p class="dim"><span class="zh">这根神经就是苍蝇拍总打不着苍蝇的原因:它比你的手快。</span>
+          <span class="en">This wire is why fly swatters miss: it is faster than your hand.</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ FAQ -->
+  <section>
+    <h2><span class="zh">你可能想问</span><span class="en">You might be wondering</span></h2>
+
+    <div class="chat chat-start"><div class="chat-bubble"><span class="zh">它是活的吗?</span><span class="en">Is it alive?</span></div></div>
+    <div class="chat chat-end"><div class="chat-bubble chat-bubble-warning">
+      <span class="zh">不是。那只果蝇很多年前就不在了,留下来的是它大脑的「电线图」。我们做的事,是让这张图重新<b>通电</b>——有点像照着录下来的乐谱,把一首歌再演奏一遍。</span>
+      <span class="en">No. That fly has been gone for years; what remains is the wiring
+      diagram of its brain. What we do is put <b>electricity back through the
+      diagram</b> — a bit like performing a song again from a written-down score.</span>
+    </div></div>
+
+    <div class="chat chat-start"><div class="chat-bubble"><span class="zh">它听我的话吗?</span><span class="en">Does it do what I say?</span></div></div>
+    <div class="chat chat-end"><div class="chat-bubble chat-bubble-warning">
+      <span class="zh">不听。你只能给它「感觉」,决定是它自己那 45,808 个细胞投票出来的。有时候你放了糖它不理你——那是<b>真的不想理你</b>。</span>
+      <span class="en">No. You can only give it sensations; the decisions are voted on by
+      its own 45,808 cells. Sometimes you put sugar down and it ignores you —
+      it <b>genuinely can't be bothered</b>.</span>
+    </div></div>
+
+    <div class="chat chat-start"><div class="chat-bubble"><span class="zh">它怎么老发呆?</span><span class="en">Why does it space out?</span></div></div>
+    <div class="chat chat-end"><div class="chat-bubble chat-bubble-warning">
+      <span class="zh">真苍蝇也发呆呀。而且我们只偷听了七条电话线——它脑子里也许正热闹着,
+      只是这七条线没说话。</span>
+      <span class="en">Real flies space out too. And we only listen to seven phone lines —
+      its brain might be busy with something, just not on any line we can hear.</span>
+    </div></div>
+
+    <div class="chat chat-start"><div class="chat-bubble"><span class="zh">我的手机算得动吗?</span><span class="en">Can my phone really run this?</span></div></div>
+    <div class="chat chat-end"><div class="chat-bubble chat-bubble-warning">
+      <span class="zh">一秒要算一万步。手机要是累了,<b>画质</b>会自己降一档省力气——
+      但大脑永远全速跑,一步都不少。</span>
+      <span class="en">Ten thousand steps a second. If your phone gets tired, the
+      <b>graphics</b> quietly drop a notch to save power — but the brain always
+      runs at full speed, never skipping a step.</span>
+    </div></div>
+  </section>
+
+  <!-- ============================================================ CTA -->
+  <section class="cta-wrap">
+    <p class="lead"><span class="zh">现在你知道它的秘密了。</span><span class="en">Now you know its secret.</span></p>
+    <a class="uv-cta" href="./pet.html"><span><span class="zh">回去找它玩 🪰</span><span class="en">Go back and play 🪰</span></span></a>
+  </section>
+
+  <footer class="dim foot">
+    <span class="zh">大脑地图:FlyWire(全球科学家 + 志愿者)· 放电规则:Shiu et al. ·
+    <a href="./index.html">整个大脑的样子在这里 →</a></span>
+    <span class="en">Brain map: FlyWire (scientists + volunteers worldwide) · firing rules:
+    Shiu et al. · <a href="./index.html">see the whole brain here →</a></span>
+  </footer>
+
+</main>
+
+<script type="module" src="/src/how.ts"></script>
+</body>
+</html>

@@ -1,0 +1,361 @@
+/* The tutorial page.
+
+   Structure comes from daisyUI's component classes (cards, steps, collapse, chat,
+   alert, badges) on top of a custom theme that repeats the game's palette from
+   tokens.css - daisy 5 themes are just CSS variables, so [data-theme=fly] below IS
+   the theme, no Tailwind build involved. Layout is a single column of hand-written
+   rules; daisy brings no layout utilities, which keeps this file honest about being
+   the only other stylesheet on the page.
+
+   The two "uiverse-style" controls (.uv-drip, .uv-cta) are authored here in that
+   style rather than pasted from the site, and pull their colours from the daisy
+   theme variables so they cannot drift from the rest of the page. */
+
+[data-theme='fly'] {
+  color-scheme: dark;
+  /* the game's warm dark ramp, from tokens.css */
+  --color-base-100: oklch(19% 0.012 75);
+  --color-base-200: oklch(23% 0.013 75);
+  --color-base-300: oklch(28% 0.015 75);
+  --color-base-content: oklch(97% 0.008 85);
+  --color-primary: oklch(80% 0.14 75);
+  --color-primary-content: oklch(20% 0.05 75);
+  --color-secondary: oklch(78% 0.15 145);
+  --color-secondary-content: oklch(18% 0.05 145);
+  --color-accent: oklch(74% 0.13 311);
+  --color-accent-content: oklch(18% 0.04 311);
+  --color-neutral: oklch(25% 0.013 75);
+  --color-neutral-content: oklch(92% 0.01 85);
+  --color-info: oklch(78% 0.12 220);
+  --color-info-content: oklch(18% 0.04 220);
+  --color-success: oklch(78% 0.15 145);
+  --color-success-content: oklch(18% 0.05 145);
+  --color-warning: oklch(80% 0.14 75);
+  --color-warning-content: oklch(20% 0.05 75);
+  --color-error: oklch(68% 0.18 25);
+  --color-error-content: oklch(96% 0.02 25);
+  --radius-selector: 0.75rem;
+  --radius-field: 0.75rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+/* ------------------------------------------------------------- two languages */
+/* Both languages live in the markup as sibling .zh/.en elements; the attribute on
+   <html> decides which set exists. display:none, not visibility: hidden steps must
+   drop out of daisy's step counter and grid flow entirely. */
+[data-lang='en'] .zh { display: none !important; }
+[data-lang='zh'] .en { display: none !important; }
+
+.lang-toggle {
+  position: fixed;
+  top: 0.9rem;
+  right: 0.9rem;
+  z-index: 10;
+  cursor: pointer;
+  font: 700 0.88rem/1 inherit;
+  font-family: inherit;
+  color: var(--color-base-content);
+  background: oklch(from var(--color-base-200) l c h / 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid oklch(100% 0 0 / 0.14);
+  border-radius: 99px;
+  padding: 0.55rem 0.95rem;
+  transition: border-color 0.15s, transform 0.08s;
+}
+.lang-toggle:hover { border-color: var(--color-primary); }
+.lang-toggle:active { transform: scale(0.94); }
+
+/* ---------------------------------------------------------------- layout */
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--color-base-100);
+  color: var(--color-base-content);
+  font: 17px/1.75 system-ui, -apple-system, 'Segoe UI', Roboto, 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 1.25rem 1.1rem 4rem;
+}
+
+section { margin-top: 3rem; }
+
+h1 {
+  font-size: clamp(2.2rem, 8vw, 3.4rem);
+  line-height: 1.15;
+  margin: 0.6rem 0;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: 1.45rem;
+  margin: 0 0 0.9rem;
+  letter-spacing: -0.01em;
+}
+
+h3 { margin: 0 0 0.4rem; font-size: 1.05rem; }
+
+p { margin: 0.55rem 0; }
+b { color: var(--color-primary); font-weight: 650; }
+.lead { font-size: 1.12rem; }
+.dim { opacity: 0.62; font-size: 0.92em; }
+/* Links, but NOT daisy's .btn anchors: this stylesheet is unlayered and daisyui.css
+   sits inside @layer, so any bare `a { color }` here would silently repaint every
+   button's label the same colour as its background - which is exactly what it did. */
+p a, .foot a { color: var(--color-primary); }
+
+.hero-fly { padding-top: 2.2rem; }
+.hero-fly .lead b { color: var(--color-primary); }
+.hero-btns { display: flex; gap: 0.7rem; margin-top: 1.1rem; }
+
+/* daisy's vertical steps: give the text some air */
+.steps-vertical .step-line { text-align: left; padding: 0.25rem 0 0.9rem 0.35rem; display: block; }
+.steps-vertical .step { min-height: 4.2rem; }
+
+.card-border { border: 1px solid oklch(100% 0 0 / 0.09); }
+.card-body { padding: 1.15rem 1.2rem; }
+.card ul { margin: 0.4rem 0; padding-left: 1.3rem; }
+.card li { margin: 0.3rem 0; }
+
+/* ---------------------------------------------------------------- stats */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin: 0.9rem 0;
+}
+.stat-tile {
+  background: var(--color-base-100);
+  border: 1px solid oklch(100% 0 0 / 0.08);
+  border-radius: var(--radius-box);
+  padding: 0.7rem 0.85rem;
+}
+.stat-tile .n {
+  font: 700 1.3rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--color-primary);
+}
+.stat-tile .l { font-size: 0.82rem; opacity: 0.7; }
+
+/* ---------------------------------------------------------------- the cup */
+
+.cup-rules { list-style: none; padding: 0 !important; }
+.cup-rules li { margin: 0.45rem 0 !important; }
+
+.cup-demo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin: 1.3rem 0 0.8rem;
+  text-align: center;
+}
+.cup-col { flex: 1; min-width: 0; }
+/* phones: three columns squeeze the drip button into a ball of wrapped text */
+@media (max-width: 560px) {
+  .cup-demo { flex-wrap: wrap; }
+  .cup-mid { flex-basis: 100%; order: 3; margin-top: 0.4rem; }
+  h2 { font-size: 1.3rem; }
+}
+.cup-cap { line-height: 1.35; margin-top: 0.5rem; }
+
+.cup {
+  position: relative;
+  width: 86px;
+  height: 120px;
+  margin: 0 auto;
+  border: 3px solid oklch(100% 0 0 / 0.35);
+  border-top-width: 0;
+  border-radius: 0 0 22px 22px;
+  overflow: hidden;
+  background: oklch(100% 0 0 / 0.04);
+}
+.cup-threshold {
+  position: absolute;
+  top: 14%;
+  left: 0; right: 0;
+  border-top: 2px dashed var(--color-error);
+  z-index: 2;
+}
+.cup-water {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 0%;
+  background: linear-gradient(to top, oklch(65% 0.12 230), oklch(75% 0.1 220));
+  transition: height 80ms linear;
+}
+.cup.fired { animation: cup-flash 0.45s ease-out; }
+@keyframes cup-flash {
+  0% { box-shadow: 0 0 0 0 var(--color-warning); background: oklch(100% 0 0 / 0.25); }
+  100% { box-shadow: 0 0 0 26px transparent; }
+}
+
+.spark { margin-top: 0.6rem; font-size: 1.02rem; opacity: 0.85; }
+.spark b { font-variant-numeric: tabular-nums; }
+
+.bulb {
+  font-size: 2.4rem;
+  filter: grayscale(1) brightness(0.55);
+  transition: filter 0.15s;
+}
+.bulb.lit { filter: none; animation: bulb-pop 0.4s ease-out; }
+@keyframes bulb-pop {
+  0% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+/* uiverse-style control #1: the drip button */
+.uv-drip {
+  position: relative;
+  border: none;
+  cursor: pointer;
+  font: 600 1.02rem/1 inherit;
+  font-family: inherit;
+  color: var(--color-primary-content);
+  background: linear-gradient(145deg, var(--color-primary), oklch(70% 0.15 60));
+  padding: 0.95rem 1.3rem;
+  border-radius: 99px;
+  box-shadow: 0 4px 0 oklch(45% 0.1 70), 0 10px 24px oklch(80% 0.14 75 / 0.25);
+  transition: transform 0.06s, box-shadow 0.06s;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.uv-drip:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 oklch(45% 0.1 70), 0 4px 12px oklch(80% 0.14 75 / 0.2);
+}
+
+/* ---------------------------------------------------------------- senses */
+
+.sense-list { display: grid; gap: 0.55rem; margin: 0.8rem 0; }
+.sense {
+  display: grid;
+  grid-template-columns: 2.1rem auto;
+  grid-template-areas: 'e name' 'e blurb';
+  column-gap: 0.6rem;
+  background: var(--color-base-100);
+  border: 1px solid oklch(100% 0 0 / 0.07);
+  border-radius: var(--radius-box);
+  padding: 0.6rem 0.8rem;
+}
+.sense .s-e { grid-area: e; font-size: 1.5rem; align-self: center; }
+.sense b { grid-area: name; color: var(--color-base-content); }
+.sense span:last-child { grid-area: blurb; font-size: 0.92rem; opacity: 0.75; }
+.sense span:last-child b { font-size: inherit; }
+
+/* ---------------------------------------------------------------- the wires */
+
+.dn-list { display: grid; gap: 0.7rem; margin: 1rem 0; }
+.dn {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: 'name id' 'bar bar' 'blurb blurb';
+  align-items: baseline;
+  column-gap: 0.6rem;
+}
+.dn b { grid-area: name; color: var(--color-base-content); }
+.dn i {
+  grid-area: id;
+  font: 500 0.8rem/1 ui-monospace, Menlo, monospace;
+  font-style: normal;
+  opacity: 0.55;
+}
+.dn .dn-bar {
+  grid-area: bar;
+  height: 7px;
+  margin: 0.3rem 0 0.15rem;
+  border-radius: 99px;
+  background: oklch(100% 0 0 / 0.08);
+  position: relative;
+  overflow: hidden;
+}
+.dn .dn-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: var(--w);
+  border-radius: inherit;
+  background: var(--color-secondary);
+  animation: dn-breathe 2.6s ease-in-out infinite;
+}
+@keyframes dn-breathe {
+  0%, 100% { transform: scaleX(1); transform-origin: left; }
+  50% { transform: scaleX(0.82); transform-origin: left; }
+}
+.dn > span:last-child { grid-area: blurb; font-size: 0.92rem; opacity: 0.75; }
+
+/* ---------------------------------------------------------------- honesty */
+
+.honest { display: grid; gap: 0.8rem; grid-template-columns: 1fr 1fr; margin-bottom: 0.9rem; }
+.honest h3.ok { color: var(--color-success); }
+.honest h3.ours { color: var(--color-accent); }
+.honest ul { padding-left: 1.15rem; font-size: 0.94rem; }
+@media (max-width: 560px) { .honest { grid-template-columns: 1fr; } }
+
+/* ---------------------------------------------------------------- experiments + FAQ */
+
+.exp { margin-bottom: 0.7rem; border: 1px solid oklch(100% 0 0 / 0.07); }
+.exp .collapse-title { font-size: 1.02rem; }
+
+.chat { margin: 0.35rem 0; }
+.chat-bubble { font-size: 0.98rem; }
+/* same trap as the buttons: the page-wide amber <b> is invisible on an amber bubble */
+.chat-bubble b { color: inherit; }
+
+/* ---------------------------------------------------------------- CTA */
+
+.cta-wrap { text-align: center; padding: 1.5rem 0 0.5rem; }
+
+/* uiverse-style control #2: the glowing return button */
+.uv-cta {
+  position: relative;
+  display: inline-block;
+  padding: 1.05rem 2.4rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-base-content);
+  text-decoration: none;
+  border-radius: 99px;
+  background: var(--color-base-200);
+  isolation: isolate;
+  overflow: hidden;
+}
+.uv-cta::before {
+  content: '';
+  position: absolute;
+  inset: -150%;
+  z-index: -2;
+  background: conic-gradient(from var(--uv-a, 0deg),
+    var(--color-primary), var(--color-secondary), var(--color-accent), var(--color-primary));
+  animation: uv-spin 3.5s linear infinite;
+}
+.uv-cta::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--color-base-200);
+}
+@property --uv-a { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+@keyframes uv-spin { to { --uv-a: 360deg; } }
+/* browsers without @property animate nothing; the ring still shows, static */
+
+@media (prefers-reduced-motion: reduce) {
+  .uv-cta::before, .dn .dn-bar::after { animation: none; }
+  html { scroll-behavior: auto; }
+}
+
+.foot { margin-top: 3.2rem; text-align: center; font-size: 0.85rem; }

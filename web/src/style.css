@@ -151,11 +151,14 @@ body {
 #story .st-text { font-size: 13px; margin-top: 3px; line-height: 1.5; }
 
 #guided { position: absolute; right: 14px; top: 14px; z-index: 6; }
-#to-pet {
-  position: absolute; right: 14px; top: 50px; z-index: 6;
+/* The three ways out of the explorer, stacked down the right-hand corner. */
+#to-pet, #to-how {
+  position: absolute; right: 14px; z-index: 6;
   text-decoration: none; display: inline-block;
 }
-#to-pet:hover { border-color: var(--accent); color: var(--accent); }
+#to-pet { top: 50px; }
+#to-how { top: 86px; }
+#to-pet:hover, #to-how:hover { border-color: var(--accent); color: var(--accent); }
 button.ghost, a.ghost {
   background: rgba(28, 19, 10, .6); border: 1px solid var(--line); color: var(--ink);
   border-radius: 3px; padding: 6px 11px; font-size: 11.5px; cursor: pointer;

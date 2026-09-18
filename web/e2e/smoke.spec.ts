@@ -231,3 +231,36 @@ test('the tutorial page teaches in both languages and the cup fires', async ({ p
 
   expect(errors, `console errors: ${errors.join(' | ')}`).toEqual([])
 })
+
+/**
+ * The three pages have to actually reach each other.
+ *
+ * Each page is a separate Vite entry, so a href typo, a page dropped from
+ * rollupOptions.input, or a rename breaks navigation in a way nothing else here
+ * notices: every page still loads perfectly well on its own. This follows the links
+ * for real rather than asserting on the markup, because a correct href pointing at a
+ * page that was never built is exactly the failure worth catching.
+ */
+test('the three pages link to each other', async ({ page }) => {
+  const hops: [string, string, RegExp][] = [
+    ['/', '#to-how', /how\.html/],          // explorer  -> tutorial
+    ['/', '#to-pet', /pet\.html/],          // explorer  -> the fly
+    ['/how.html', '.uv-cta', /pet\.html/],  // tutorial  -> the fly
+    ['/how.html', '.foot a', /index\.html/],// tutorial  -> explorer
+  ]
+  for (const [from, selector, dest] of hops) {
+    await page.goto(from)
+    // `:visible`, not `.first()`: the tutorial carries both languages in the markup
+    // and hides one set, so the footer link resolves to two anchors of which only one
+    // can be clicked. Following the one a reader can actually see is the point.
+    await page.locator(`${selector}:visible`).first().click()
+    await expect(page, `${from} ${selector} did not reach ${dest}`).toHaveURL(dest)
+    // a built page, not a 404 from the preview server
+    await expect(page.locator('body')).not.toContainText('Cannot GET')
+  }
+
+  // the pet page's own two ways out, checked without booting the simulation twice
+  await page.goto('/pet.html')
+  await expect(page.locator('a[href="./how.html"]')).toHaveCount(1)
+  await expect(page.locator('a[href="./index.html"]')).toHaveCount(1)
+})

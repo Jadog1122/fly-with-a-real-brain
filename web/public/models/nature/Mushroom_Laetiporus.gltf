@@ -1,136 +1,239 @@
 {
-	"asset":{
-		"generator":"Khronos glTF Blender I/O v4.0.44",
-		"version":"2.0"
-	},
-	"scene":0,
-	"scenes":[
-		{
-			"name":"Scene",
-			"nodes":[
-				0
-			]
-		}
-	],
-	"nodes":[
-		{
-			"mesh":0,
-			"name":"Mushroom_Laetiporus"
-		}
-	],
-	"materials":[
-		{
-			"doubleSided":true,
-			"name":"Mushrooms",
-			"pbrMetallicRoughness":{
-				"baseColorTexture":{
-					"index":0
-				},
-				"metallicFactor":0
-			}
-		}
-	],
-	"meshes":[
-		{
-			"name":"Cube.020",
-			"primitives":[
-				{
-					"attributes":{
-						"POSITION":0,
-						"NORMAL":1,
-						"TEXCOORD_0":2
-					},
-					"indices":3,
-					"material":0
-				}
-			]
-		}
-	],
-	"textures":[
-		{
-			"sampler":0,
-			"source":0
-		}
-	],
-	"images":[
-		{
-			"mimeType":"image/png",
-			"name":"Mushrooms",
-			"uri":"Mushrooms.png"
-		}
-	],
-	"accessors":[
-		{
-			"bufferView":0,
-			"componentType":5126,
-			"count":1806,
-			"max":[
-				0.716213583946228,
-				0.606732964515686,
-				0.7748813629150391
-			],
-			"min":[
-				-0.6498190760612488,
-				-0.16022536158561707,
-				-0.32830116152763367
-			],
-			"type":"VEC3"
-		},
-		{
-			"bufferView":1,
-			"componentType":5126,
-			"count":1806,
-			"type":"VEC3"
-		},
-		{
-			"bufferView":2,
-			"componentType":5126,
-			"count":1806,
-			"type":"VEC2"
-		},
-		{
-			"bufferView":3,
-			"componentType":5123,
-			"count":9648,
-			"type":"SCALAR"
-		}
-	],
-	"bufferViews":[
-		{
-			"buffer":0,
-			"byteLength":21672,
-			"byteOffset":0,
-			"target":34962
-		},
-		{
-			"buffer":0,
-			"byteLength":21672,
-			"byteOffset":21672,
-			"target":34962
-		},
-		{
-			"buffer":0,
-			"byteLength":14448,
-			"byteOffset":43344,
-			"target":34962
-		},
-		{
-			"buffer":0,
-			"byteLength":19296,
-			"byteOffset":57792,
-			"target":34963
-		}
-	],
-	"samplers":[
-		{
-			"magFilter":9729,
-			"minFilter":9987
-		}
-	],
-	"buffers":[
-		{
-			"byteLength":77088,
-			"uri":"Mushroom_Laetiporus.bin"
-		}
-	]
+  "asset": {
+    "generator": "glTF-Transform v4.5.0",
+    "version": "2.0"
+  },
+  "accessors": [
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 15597,
+      "normalized": false,
+      "byteOffset": 0,
+      "bufferView": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 3238,
+      "max": [
+        32767,
+        18090,
+        26359
+      ],
+      "min": [
+        -32767,
+        -18090,
+        -26359
+      ],
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 1
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 3238,
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 2
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5123,
+      "count": 3238,
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 3
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 1,
+      "byteOffset": 0,
+      "byteLength": 31194,
+      "target": 34963,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 0,
+          "byteLength": 6160,
+          "mode": "TRIANGLES",
+          "byteStride": 2,
+          "count": 15597
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 31196,
+      "byteLength": 25904,
+      "target": 34962,
+      "byteStride": 8,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 6160,
+          "byteLength": 16793,
+          "mode": "ATTRIBUTES",
+          "byteStride": 8,
+          "count": 3238
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 57100,
+      "byteLength": 25904,
+      "target": 34962,
+      "byteStride": 8,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 22956,
+          "byteLength": 19333,
+          "mode": "ATTRIBUTES",
+          "byteStride": 8,
+          "count": 3238
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 83004,
+      "byteLength": 12952,
+      "target": 34962,
+      "byteStride": 4,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 42292,
+          "byteLength": 10350,
+          "mode": "ATTRIBUTES",
+          "byteStride": 4,
+          "count": 3238
+        }
+      }
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "extensions": {
+        "EXT_texture_webp": {
+          "source": 1
+        }
+      }
+    },
+    {
+      "sampler": 0,
+      "extensions": {
+        "EXT_texture_webp": {
+          "source": 0
+        }
+      }
+    }
+  ],
+  "images": [
+    {
+      "name": "Mushrooms_n",
+      "mimeType": "image/webp",
+      "uri": "Mushrooms_n.webp"
+    },
+    {
+      "name": "Mushrooms",
+      "mimeType": "image/webp",
+      "uri": "Mushrooms.webp"
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "Mushroom_Laetiporus.bin",
+      "byteLength": 52644
+    },
+    {
+      "byteLength": 95956,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "fallback": true
+        }
+      }
+    }
+  ],
+  "materials": [
+    {
+      "name": "Mushrooms",
+      "doubleSided": true,
+      "pbrMetallicRoughness": {
+        "roughnessFactor": 0.550000011920929,
+        "metallicFactor": 0,
+        "baseColorTexture": {
+          "index": 0
+        }
+      },
+      "normalTexture": {
+        "index": 1
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Cube.002",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 1,
+            "NORMAL": 2,
+            "TEXCOORD_0": 3
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 0
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "Mushroom_Laetiporus",
+      "translation": [
+        0.032856136560440063,
+        0.22277117520570755,
+        0.22249408066272736
+      ],
+      "scale": [
+        0.6818020045757294,
+        0.6818020045757294,
+        0.6818020045757294
+      ],
+      "mesh": 0
+    }
+  ],
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0,
+  "extensionsUsed": [
+    "EXT_meshopt_compression",
+    "EXT_texture_webp",
+    "KHR_mesh_quantization"
+  ],
+  "extensionsRequired": [
+    "EXT_meshopt_compression",
+    "EXT_texture_webp",
+    "KHR_mesh_quantization"
+  ]
 }

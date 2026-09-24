@@ -19,7 +19,7 @@ import { mkdir } from 'node:fs/promises'
 const OUT = process.argv[2]
 await mkdir(OUT, { recursive: true })
 const preview = spawn('npx', ['vite', 'preview', '--port', '4332', '--strictPort'],
-  { stdio: ['ignore', 'pipe', 'pipe'] })
+  { stdio: ['ignore', 'pipe', 'pipe'], detached: true })
 const url = await new Promise(res => {
   const scan = b => { const m = /(http:\/\/localhost:\d+)/.exec(b.toString()); if (m) res(m[1]) }
   preview.stdout.on('data', scan); preview.stderr.on('data', scan)
@@ -68,4 +68,4 @@ for (let shot = 0; shot < N; shot++) {
   })
   console.log('shot', shot)
 }
-await browser.close(); preview.kill()
+await browser.close(); process.kill(-preview.pid)

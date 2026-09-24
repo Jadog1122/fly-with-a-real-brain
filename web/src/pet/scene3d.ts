@@ -8,6 +8,7 @@
 
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { Sky } from 'three/examples/jsm/objects/Sky.js'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
@@ -126,13 +127,32 @@ function rng(seed: number) {
   return () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296)
 }
 
+/**
+ * three's own light loop, keeping one extra value: the sun's colour after its shadow
+ * test (`sunLit`), so light coming through a leaf can be shadowed exactly as light
+ * landing on it is. The sun is directional light 0 - three sorts shadow-casting lights
+ * first. Null if a three upgrade has moved the code; the caller then falls back to the
+ * unshadowed sun rather than failing to compile.
+ */
+const LIGHTS_KEEPING_SUN = (() => {
+  const src = THREE.ShaderChunk.lights_fragment_begin
+  const at = src.indexOf('#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )')
+  const call = 'RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );'
+  if (at < 0 || src.indexOf(call, at) < 0) return null
+  return 'vec3 sunLit = vec3( 0.0 );\n' + src.slice(0, at) + src.slice(at).replace(call, `${call}
+		#if ( UNROLLED_LOOP_INDEX == 0 )
+		sunLit = directLight.color;
+		#endif`)
+})()
+
 export class Scene3D {
   readonly scene = new THREE.Scene()
   readonly camera: THREE.PerspectiveCamera
   readonly renderer: THREE.WebGLRenderer
   readonly fly = new Fly3D()
 
-  private loader = new GLTFLoader()
+  // the refined scenery ships meshopt-compressed (art/kit/optimize.mjs)
+  private loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)
   private cache = new Map<string, THREE.Group>()
   private stimObjects = new Map<number, THREE.Object3D>()
   private stimLayer = new THREE.Group()
@@ -941,14 +961,15 @@ export class Scene3D {
       this.scene.add(beads)
     }
 
-    // Fallen leaves. The kit's petals are the right shape but far too small to read
-    // as leaf litter at this scale, so the same geometry goes down much larger, laid
-    // almost flat, tilted every which way and tinted through autumn browns. Each one
-    // is a distinct object at fly scale - something to walk under.
-    const leafFiles = ['Petal_1', 'Petal_2', 'Petal_3', 'Clover_2']
-    const LEAF_TINTS = [0x8a5a28, 0xa8763a, 0x6b4420, 0xb08948, 0x7d5c2e]
+    // Fallen leaves: oak, beech, birch and maple, dry and part-decayed, each a distinct
+    // object at fly scale - something to walk under. These used to be the kit's petal
+    // models tinted brown, but those are whole little flowers, and blown up to this size
+    // they read as red paper; the leaves are made for it (art/kit). They carry their own
+    // colour, so an instance only varies in how weathered it is.
+    const leafFiles = ['Litter_Oak', 'Litter_Beech', 'Litter_Birch', 'Litter_Maple']
+    const weather = new THREE.Color()
     for (const lf of leafFiles) {
-      const lproto = proto.get(lf)
+      const lproto = proto.get(lf) ?? await this.load(lf).catch(() => null)
       if (!lproto) continue
       lproto.updateMatrixWorld(true)
       const lparts: { geo: THREE.BufferGeometry; mat: THREE.Material; local: THREE.Matrix4 }[] = []
@@ -962,7 +983,6 @@ export class Scene3D {
       const le = new THREE.Euler(), lv = new THREE.Vector3(), ls = new THREE.Vector3()
       for (const part of lparts) {
         const pm = (part.mat as THREE.MeshStandardMaterial).clone()
-        pm.color.setHex(LEAF_TINTS[(r() * LEAF_TINTS.length) | 0])
         pm.roughness = 0.62            // damp, not dry
         pm.side = THREE.DoubleSide     // seen from underneath as often as above
         // No sway - a fallen leaf is not attached to anything - but the same
@@ -975,15 +995,19 @@ export class Scene3D {
         im.receiveShadow = true
         for (let i = 0; i < LN; i++) {
           lv.set(70 + r() * (w - 140), 1.4 + r() * 3, 70 + r() * (h - 140))
-          // nearly flat, but curled up at an angle - a dried leaf never lies true
-          le.set((r() - .5) * 0.7, r() * Math.PI * 2, (r() - .5) * 0.7)
+          // A dried leaf never lies true. The models are already curled, so less tilt
+          // than the flat petals needed, and more or less curl from the height scale.
+          le.set((r() - .5) * 0.4, r() * Math.PI * 2, (r() - .5) * 0.4)
           lq.setFromEuler(le)
           const k = S * (0.9 + r() * 1.1)
-          ls.set(k, k * (0.7 + r() * 0.5), k)
+          ls.set(k, k * (0.7 + r() * 0.6), k)
           lm.compose(lv, lq, ls).multiply(part.local)
           im.setMatrixAt(i, lm)
+          const g = 0.8 + r() * 0.28
+          im.setColorAt(i, weather.setRGB(g, g * (0.95 + r() * 0.05), g * (0.9 + r() * 0.1)))
         }
         im.instanceMatrix.needsUpdate = true
+        if (im.instanceColor) im.instanceColor.needsUpdate = true
         im.computeBoundingSphere()
         this.scene.add(im)
       }
@@ -1242,14 +1266,32 @@ export class Scene3D {
           ? `float fadeVis = smoothstep(uFadeNear * 0.35, uFadeNear, length(vViewPosition));
           vec4 diffuseColor = vec4( diffuse, opacity * fadeVis );`
           : 'vec4 diffuseColor = vec4( diffuse, opacity );')
+        .replace('#include <lights_fragment_begin>', LIGHTS_KEEPING_SUN
+          ?? '#if NUM_DIR_LIGHTS > 0\nvec3 sunLit = directionalLights[ 0 ].color;\n#endif\n#include <lights_fragment_begin>')
+        // Sun on the far side of the face being looked at, seen through it. Three
+        // things the first version got wrong, and why the backlit meadow read as black
+        // cut-outs and pale planks: it used vNormal, which a double-sided leaf does not
+        // flip for its back face, so a leaf seen from below got nothing; it ignored the
+        // sun's shadow, so leaves deep in shade glowed; and it had no 1/pi, so what did
+        // get through was brighter than the sun landing on the front.
         .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+          #if NUM_DIR_LIGHTS > 0
           {
-            // sun behind the surface, seen through it
-            vec3 L = normalize(directionalLights[0].direction);
-            float back = pow(max(dot(-L, normalize(vNormal)), 0.0), 2.0);
-            reflectedLight.directDiffuse += directionalLights[0].color
-              * back * 0.55 * diffuseColor.rgb;
-          }`)
+            vec3 L = directionalLights[ 0 ].direction;
+            float through = max( dot( -L, normal ), 0.0 );
+            // thin tissue scatters forward: brightest looking straight into the sun
+            float into = pow( max( dot( -geometryViewDir, L ), 0.0 ), 8.0 );
+            // The pigment filters the light going in and again coming out, so what
+            // gets through is the leaf's own colour, deeper. A pale petal reflects most
+            // of what reaches it and passes less on - without that, backlit flowers
+            // came out brighter than the sun on them.
+            vec3 c = diffuseColor.rgb;
+            float peak = max( max( c.r, c.g ), max( c.b, 1e-3 ) );
+            vec3 filt = c * ( 0.4 + 0.6 * c / peak ) * ( 1.0 - 0.45 * c );
+            reflectedLight.directDiffuse += sunLit * filt * through
+              * ( 0.95 + 1.2 * into ) * RECIPROCAL_PI;
+          }
+          #endif`)
     }
     // One cache key for every windy material, not one per height. Height and sway are
     // uniforms, so they can differ per material while all of them share a single

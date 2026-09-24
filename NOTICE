@@ -14,7 +14,10 @@ Components under other terms, retained here with attribution:
 
   - Neuron annotations and coordinates: CC-BY-4.0, Schlegel et al. 2024,
     github.com/flyconnectome/flywire_annotations
-  - 3-D props: Stylized Nature MegaKit by Quaternius, CC0
+  - 3-D props: Stylized Nature MegaKit by Quaternius, CC0. The originals are kept in
+    art/src/nature; what ships in web/public/models/nature is refined from them by
+    art/kit/. The four fallen leaves there (Litter_*) are not from the kit: they are
+    made by art/kit/ and are this repository's own.
   - 3-D fly: the Drosophila melanogaster body model from flybody, developed by Google
     DeepMind and HHMI Janelia Research Campus, Apache-2.0.
       source:   https://github.com/TuragaLab/flybody

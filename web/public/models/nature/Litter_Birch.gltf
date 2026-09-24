@@ -1,0 +1,241 @@
+{
+  "asset": {
+    "generator": "glTF-Transform v4.5.0",
+    "version": "2.0"
+  },
+  "accessors": [
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 1560,
+      "normalized": false,
+      "byteOffset": 0,
+      "bufferView": 0
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5126,
+      "count": 299,
+      "normalized": false,
+      "byteOffset": 0,
+      "bufferView": 1
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 299,
+      "max": [
+        20522,
+        4644,
+        32767
+      ],
+      "min": [
+        -20522,
+        -4644,
+        -32767
+      ],
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 2
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 299,
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 3
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 1,
+      "byteOffset": 0,
+      "byteLength": 3120,
+      "target": 34963,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 0,
+          "byteLength": 574,
+          "mode": "TRIANGLES",
+          "byteStride": 2,
+          "count": 1560
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 3120,
+      "byteLength": 2392,
+      "target": 34962,
+      "byteStride": 8,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 576,
+          "byteLength": 1367,
+          "mode": "ATTRIBUTES",
+          "byteStride": 8,
+          "count": 299
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 5512,
+      "byteLength": 2392,
+      "target": 34962,
+      "byteStride": 8,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 1944,
+          "byteLength": 1458,
+          "mode": "ATTRIBUTES",
+          "byteStride": 8,
+          "count": 299
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 7904,
+      "byteLength": 2392,
+      "target": 34962,
+      "byteStride": 8,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 3404,
+          "byteLength": 1505,
+          "mode": "ATTRIBUTES",
+          "byteStride": 8,
+          "count": 299
+        }
+      }
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "extensions": {
+        "EXT_texture_webp": {
+          "source": 1
+        }
+      }
+    },
+    {
+      "sampler": 0,
+      "extensions": {
+        "EXT_texture_webp": {
+          "source": 0
+        }
+      }
+    }
+  ],
+  "images": [
+    {
+      "name": "Litter_n",
+      "mimeType": "image/webp",
+      "uri": "Litter_n.webp"
+    },
+    {
+      "name": "Litter",
+      "mimeType": "image/webp",
+      "uri": "Litter.webp"
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "Litter_Birch.bin",
+      "byteLength": 4912
+    },
+    {
+      "byteLength": 10296,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "fallback": true
+        }
+      }
+    }
+  ],
+  "materials": [
+    {
+      "name": "Litter",
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.4,
+      "doubleSided": true,
+      "pbrMetallicRoughness": {
+        "roughnessFactor": 0.6200000047683716,
+        "metallicFactor": 0,
+        "baseColorTexture": {
+          "index": 0
+        }
+      },
+      "normalTexture": {
+        "index": 1
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Litter_Birch",
+      "primitives": [
+        {
+          "attributes": {
+            "TEXCOORD_0": 1,
+            "POSITION": 2,
+            "NORMAL": 3
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 0
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "Litter_Birch",
+      "translation": [
+        0.007411405444145203,
+        0.06820410490036011,
+        -0.007656484842300415
+      ],
+      "scale": [
+        0.48125162720680237,
+        0.48125162720680237,
+        0.48125162720680237
+      ],
+      "mesh": 0
+    }
+  ],
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0,
+  "extensionsUsed": [
+    "EXT_meshopt_compression",
+    "EXT_texture_webp",
+    "KHR_mesh_quantization"
+  ],
+  "extensionsRequired": [
+    "EXT_meshopt_compression",
+    "EXT_texture_webp",
+    "KHR_mesh_quantization"
+  ]
+}

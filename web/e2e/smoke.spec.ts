@@ -52,9 +52,11 @@ test('the pet page boots the brain, runs it and renders the world', async ({ pag
   // HUD text is driven by worker messages, so this proves the simulation is running
   await expect(page.locator('.pet-doing b')).not.toHaveText('…')
   await expect(page.locator('.pet-doing i')).toContainText('steps/s')
-  const stepsPerSec = await page.evaluate(() =>
-    parseInt((document.querySelector('.pet-doing i')?.textContent ?? '').replace(/\D/g, ''), 10))
-  expect(stepsPerSec, 'the simulation reported no steps per second').toBeGreaterThan(0)
+  // The rate is a moving average that starts from zero, so the HUD can read "0 steps/s"
+  // for the moment before the worker's first tick lands; reading it once raced that.
+  await expect.poll(() => page.evaluate(() =>
+    parseInt((document.querySelector('.pet-doing i')?.textContent ?? '').replace(/\D/g, ''), 10)),
+  { message: 'the simulation reported no steps per second', timeout: 10_000 }).toBeGreaterThan(0)
 
   // WebGL actually produced a canvas at a sane size
   const canvas = page.locator('.pet-viewport canvas')

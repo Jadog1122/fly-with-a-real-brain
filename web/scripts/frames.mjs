@@ -8,7 +8,7 @@ import process from 'node:process'
 const OUT = process.argv[2] || 'shots'
 await mkdir(OUT, { recursive: true })
 const preview = spawn('npx', ['vite', 'preview', '--port', '4319', '--strictPort'],
-  { stdio: ['ignore', 'pipe', 'pipe'] })
+  { stdio: ['ignore', 'pipe', 'pipe'], detached: true })
 const url = await new Promise(res => {
   const scan = b => { const m = /(http:\/\/localhost:\d+)/.exec(b.toString()); if (m) res(m[1]) }
   preview.stdout.on('data', scan); preview.stderr.on('data', scan)
@@ -67,4 +67,4 @@ for (let i = 0; i < 5; i++) {
 }
 writeFileSync(`${OUT}/where.json`, JSON.stringify(rows, null, 1))
 await browser.close()
-preview.kill()
+process.kill(-preview.pid)

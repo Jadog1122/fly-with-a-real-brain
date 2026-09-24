@@ -25,7 +25,7 @@ const THROUGHPUT_S = 3
 
 async function startPreview() {
   const p = spawn('npx', ['vite', 'preview', '--port', '4317', '--strictPort'], {
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ['ignore', 'pipe', 'pipe'], detached: true,
   })
   const url = await new Promise((res, rej) => {
     const t = setTimeout(() => rej(new Error('vite preview did not start')), 30_000)
@@ -256,5 +256,5 @@ for (const v of VIEWPORTS) {
 
 if (!process.argv.includes('--keep-open')) {
   await browser.close()
-  proc.kill()
+  process.kill(-proc.pid)
 }

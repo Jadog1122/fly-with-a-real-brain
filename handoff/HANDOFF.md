@@ -193,3 +193,56 @@ eyeballing it (e.g. walking swings a leg 1.00 rad and lifts it 0.38; stopped is 
 2.00 rad vs 0.12 idle). One real defect found and fixed that way: grooming was driven
 off `performance.now()` (inherited idiom), so it was wall-clock dependent — it now runs
 off an accumulator advanced by `dt`.
+
+### 2026-09-24 — fly-model session — the fly rebuilt; every scenery model refined
+
+The user asked for every model in the game to be refined rather than imported as-is, so
+this session's scope now covers `web/public/models/**` as a whole, not only the fly.
+
+**The fly (`0f465dc`, unpushed at the time of writing).** Replaced the shy fly with
+*Drosophila melanogaster* from DeepMind/Janelia's flybody (Apache-2.0), rebuilt by
+`art/fly/build.sh`: 22.6k triangles, eye facets and bristles baked, own skeleton, five
+clips (walk, groom, proboscis, startle, flight). `fly3d.ts` keeps the same interface;
+`scene3d.ts` passes one extra field to `fly.update` (`turn`), inside the fly block.
+
+**The scenery (this commit).** `art/kit/build.sh` rebuilds all 22 kit models from the
+untouched originals, now kept in `art/src/nature` (byte-identical to what shipped
+before): blades rebuilt with form and venation, leaf/petal atlases re-rendered at 4x with
+veins and normal maps, stones re-meshed round onto a granite texture, mushrooms smoothed.
+Plus **four new models**, `Litter_Oak/Beech/Birch/Maple`: the kit has no fallen leaves,
+and the petal models the litter used are whole little flowers — blown up and tinted
+brown, they were the "red paper". Same file names for everything else, so nothing that
+loads a kit model by name needed to change.
+
+**What I changed in `scene3d.ts` outside the fly blocks — please read:**
+
+1. The loader has a meshopt decoder (`setMeshoptDecoder`). The refined kit ships
+   meshopt-compressed; without it the models fail to load.
+2. `windify`'s translucency term had three bugs, and they were most of why the meadow
+   looked wrong: it used `vNormal`, which a double-sided leaf does not flip for its back
+   face, so leaves seen from below got no light through them at all (the black "bats"
+   against the sky); it ignored the sun's shadow, so shaded leaves glowed; and it had no
+   1/pi, so what got through was brighter than direct sun. It now uses the face-corrected
+   `normal`, the sun's colour *after* its shadow test (captured inside three's own light
+   loop — `LIGHTS_KEEPING_SUN`, with a fallback if a three upgrade moves that code), and
+   a pigment-filtered colour. Your sun is held behind the subject, so most foliage in
+   frame is backlit and this term decides how the whole meadow reads.
+3. The litter block loads the four `Litter_*` models instead of `Petal_1..3`/`Clover_2`,
+   varies each instance's weathering with `setColorAt` instead of one brown tint per
+   model, and tilts them less (the models are already curled). Counts, sizes and
+   placement are yours and unchanged. The random sequence after it shifts, so the tall
+   arcing grass lands in different places — still deterministic.
+
+Also: `e2e/smoke.spec.ts` — "the simulation reported no steps per second" raced the
+HUD's moving average, which starts at 0; it now polls. The five `web/scripts/*.mjs`
+capture scripts leaked their `vite preview` (killing `npx` does not kill vite), which
+then held the port and hung the next run; they now spawn it detached and kill the group.
+
+Verified: `npm run check` green, Chromium and Firefox e2e green, live captures in
+Chromium (Metal) from the follow camera, the overview, and every stimulus placed in
+front of the fly. Frame rate unchanged (35 fps at 2x DPR on this Mac).
+
+**Next, from the same user request:** a game layer that shows the fly's mental model —
+what it senses, what it decides, and why — with actions you can see. That will touch
+`App.tsx`/`engine.ts`/`pet.css`. I will keep it in new files where I can and write down
+anything I change in yours.

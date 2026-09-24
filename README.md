@@ -462,9 +462,15 @@ is tied to the paint schedule.
 
 ### The world
 
-The pet lives in a three.js diorama, not on a 2-D grid. The props are **Quaternius's
-Stylized Nature MegaKit** (CC0, via opengameart.org) loaded as glTF — 22 of its 68
-models, textures downscaled from 2048 to 512 px, 1.9 MB in total.
+The pet lives in a three.js diorama, not on a 2-D grid. The props start from
+**Quaternius's Stylized Nature MegaKit** (CC0, via opengameart.org) — 22 of its 68
+models, the originals kept in `art/src/nature` — and are refined for the scale this game
+shows them at by `art/kit/build.sh`, because at a fly's scale their resolution was what
+showed: grass blades are rebuilt along their own curves with a folded section and real
+venation, leaves and petals re-rendered at four times the resolution with veins and
+normal maps, pebbles and rocks re-meshed round and water-worn onto a granite texture.
+The kit has no leaf litter, so four fallen leaves — oak, beech, birch, maple, dry and
+part-decayed, one half skeletonised — are made there too. 2.0 MB in total.
 
 The scale is the point. At a fly's size a clover is a canopy, a pebble is a boulder and
 a blade of grass is a tree, so the arena's wall is a real kerb of stones with a skirt of
@@ -472,10 +478,11 @@ planting behind it rather than an invisible line. The stimulus tokens are props 
 one of them is exact rather than decorative: **geosmin's token is a mushroom**, because
 geosmin is the smell of mould.
 
-The fly itself is procedural — there is no CC0 *Drosophila* — built from primitives with
-real proportions: eyes taking most of the head, a banded abdomen, wings longer than the
-body and held back at rest, six legs on a tripod gait. It is flat-shaded to sit in the
-same style as the kit.
+The fly is *Drosophila melanogaster* from DeepMind and Janelia's flybody, rebuilt for the
+browser by `art/fly/build.sh`: decimated from 272k to 22.6k triangles with the
+compound-eye facets and fine bristles baked into maps, and animated on its own skeleton
+with five clips — walk, groom, proboscis, startle, flight — that the brain's readouts
+drive (`web/src/pet/fly3d.ts`).
 
 Three placement bugs are worth recording because each looked fine until the camera moved
 through it: the wall was first laid out as an ellipse while the physics bounces off a
@@ -596,6 +603,10 @@ web/
     pet/ motor.ts   descending firing rates -> behaviour
     pet/ world.ts   the arena, and the fly's vector art
   pet/ _headless.ts  re-exports the above for the offline tuning harness
+art/               build-time tools for the 3-D assets (not shipped)
+  fly/build.sh     flybody's Drosophila -> web/public/models/fly
+  kit/build.sh     the Quaternius kit, refined, plus the leaf litter -> web/public/models/nature
+  src/nature/      the kit's original models, untouched
 public/   -> web/public  (the baked data, at the path the brief names)
 data/
   cache/  annotations, neuron table, subnetwork, Brian2 build dirs, validation runs
@@ -634,7 +645,9 @@ rm -rf data/cache/b2_build data/cache/b2_smoke
 - Interface components: [@rpgjs/ui-css](https://github.com/RSamaium/RPG-JS), **MIT**,
   installed from npm and used directly, retinted through its own CSS variables.
 - 3-D props: **Stylized Nature MegaKit** by [Quaternius](https://quaternius.com),
-  **CC0** — no attribution required, given here anyway.
+  **CC0** — no attribution required, given here anyway. The game ships versions refined
+  by `art/kit/` (originals in `art/src/nature`); the four fallen leaves
+  (`web/public/models/nature/Litter_*`) are this project's own, made there.
 - The fly itself: the ***Drosophila melanogaster* body model from
   [flybody](https://github.com/TuragaLab/flybody)**, by Google DeepMind and HHMI Janelia,
   **Apache-2.0** (Vaxenburg et al., *Nature* 2025). The game ships a derivative, rebuilt

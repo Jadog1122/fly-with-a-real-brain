@@ -15,26 +15,19 @@ Components under other terms, retained here with attribution:
   - Neuron annotations and coordinates: CC-BY-4.0, Schlegel et al. 2024,
     github.com/flyconnectome/flywire_annotations
   - 3-D props: Stylized Nature MegaKit by Quaternius, CC0
-  - 3-D fly: "shy fly" by Maf'j Alvarez, CC-BY-3.0.  Published by its author on Google
-    Poly, which stated "Public / Remixable (CC-BY) ... You're free to use this as long
-    as you credit the author"; Poly shut down in 2021, and the asset is mirrored by the
-    Icosa Foundation's archive, which records license CREATIVE_COMMONS_BY version 3.0.
-      source:   https://poly.pizza/m/8p3PASxvAQr
-      archive:  https://api.icosa.gallery/v1/assets/8p3PASxvAQr
-      files:    web/public/models/fly/shy-fly.glb - the author's file, unmodified.
-              web/public/models/fly/shy-fly-rigged.glb - a DERIVATIVE of it, and what
-                the game actually loads. CC-BY requires modifications to be noted, so:
-                a seventeen-bone armature was added and the eleven original parts were
-                skinned to it (two bones per leg, so the legs bend); five animation
-                clips were authored - idle, walk, groom, flight, proboscis; and the
-                proboscis is a duplicate of the author's own hind-leg mesh, rescaled
-                and mounted at the snout, because the model has no mouthparts. No
-                original geometry was altered, added to or removed. The whole
-                derivation is one script, art/rig_fly.py, run against the file above -
-                so exactly what was changed is readable, and re-runnable.
-    The same author later published this model on Sketchfab under CC BY-NC-SA. That is
-    a separate, later grant and does not withdraw the CC-BY one relied on here, but a
-    fork that wants to avoid the ambiguity should replace this asset.
+  - 3-D fly: the Drosophila melanogaster body model from flybody, developed by Google
+    DeepMind and HHMI Janelia Research Campus, Apache-2.0.
+      source:   https://github.com/TuragaLab/flybody
+                (flybody/fruitfly/assets/blender_model/drosophila.blend, commit 6c50cdc)
+      cite:     Vaxenburg R, Siwanowicz I, Merel J, Robie AA, et al. "Whole-body physics
+                simulation of fruit fly locomotion." Nature (2025).
+      file:     web/public/models/fly/drosophila.glb - a DERIVATIVE of the source, built by
+                art/fly/build_fly.py and art/fly/optimize.mjs. Apache-2.0 requires the
+                changes to be stated and a copy of the licence to go with the work; both
+                are in web/public/models/fly/LICENSE.txt, next to the model.
+    Earlier versions of this repository shipped "shy fly" by Maf'j Alvarez (CC-BY-3.0,
+    https://poly.pizza/m/8p3PASxvAQr). It is no longer distributed; its credit stays in
+    the history of this file for as long as those versions exist.
   - Surface textures: Poly Haven, CC0. CC0 asks for nothing, but the site asks to be
     credited and the assets are worth crediting.
       web/public/tex/moss_*.jpg   https://polyhaven.com/a/forest_leaves_02

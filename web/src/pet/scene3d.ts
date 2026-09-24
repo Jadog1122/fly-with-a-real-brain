@@ -3,8 +3,8 @@
 // Props are Quaternius's Stylized Nature MegaKit (CC0, opengameart.org) loaded as glTF.
 // At a fly's scale a clover is a canopy, a pebble is a boulder and a blade of grass is a
 // tree, so the arena wall is a real ring of rocks rather than an invisible edge.
-// The fly itself is Maf'j Alvarez's CC-BY "shy fly", flat-shaded to sit in the same
-// style and rigged at load time in fly3d.ts.  See NOTICE.
+// The fly itself is flybody's Drosophila (DeepMind and HHMI Janelia, Apache-2.0), rebuilt
+// for the game by art/fly/build.sh and driven by fly3d.ts.  See NOTICE.
 
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -1590,6 +1590,8 @@ export class Scene3D {
       speed: f.speed, legPhase: f.legPhase, escape: f.flying > 0.15,
       proboscis: action.proboscis, groom: action.groom, startle: f.startle,
       airborne: this.airborne,
+      // the head leads a turn, as a fly's does
+      turn: f.turnRate,
     })
 
     // The contact shadow stays on the ground and spreads and fades as it climbs, which

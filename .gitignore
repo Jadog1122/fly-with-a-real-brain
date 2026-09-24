@@ -15,3 +15,6 @@ web/dist/
 # playwright
 test-results/
 playwright-report/
+
+# art pipeline: downloaded sources and intermediate bakes, all regenerable (art/fly/build.sh)
+art/.cache/

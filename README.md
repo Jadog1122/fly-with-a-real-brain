@@ -635,10 +635,11 @@ rm -rf data/cache/b2_build data/cache/b2_smoke
   installed from npm and used directly, retinted through its own CSS variables.
 - 3-D props: **Stylized Nature MegaKit** by [Quaternius](https://quaternius.com),
   **CC0** — no attribution required, given here anyway.
-- The fly itself: **"shy fly" by Maf'j Alvarez**, **CC-BY-3.0**, from Google Poly via
-  [poly.pizza](https://poly.pizza/m/8p3PASxvAQr) (Poly's own page said "Public /
-  Remixable (CC-BY)"; the [Icosa archive](https://api.icosa.gallery/v1/assets/8p3PASxvAQr)
-  of Poly records `CREATIVE_COMMONS_BY` 3.0). **Attribution is required** — keep this
-  credit in any fork. The `.glb` is shipped unmodified; `web/src/pet/fly3d.ts` rigs it
-  at load time and adds no geometry. See `NOTICE` for the full provenance, including a
-  note on the author's later Sketchfab upload of the same model under NC terms.
+- The fly itself: the ***Drosophila melanogaster* body model from
+  [flybody](https://github.com/TuragaLab/flybody)**, by Google DeepMind and HHMI Janelia,
+  **Apache-2.0** (Vaxenburg et al., *Nature* 2025). The game ships a derivative, rebuilt
+  by `art/fly/build.sh`: decimated from 272k to 22.6k triangles with the eye facets and
+  fine bristles baked into maps, tergite bands added, wings folded, and five clips
+  authored on its own skeleton. The licence and the list of changes travel with the model
+  in `web/public/models/fly/LICENSE.txt`. Earlier versions shipped Maf'j Alvarez's CC-BY
+  "shy fly"; see `NOTICE`.

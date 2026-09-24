@@ -151,7 +151,7 @@ test('tone mapping runs before the grade, the vignette and the grain', async ({ 
 /**
  * The fly's body has to actually move.
  *
- * The skeleton lives in the asset now (art/rig_fly.py builds it in Blender) and this
+ * The skeleton lives in the asset (art/fly/build_fly.py builds it in Blender) and this
  * plays clips off it, which means there are several new ways for the fly to end up
  * frozen: the clip names could change, the mixer could never be updated, the weights
  * could all sit at zero, or the asset could ship without its animations. None of those
@@ -185,9 +185,12 @@ test('the brain moves the fly, and the fly has a skeleton that moves with it', a
   const a = await sample()
   // The asset carries these; if Blender stops exporting one, the blend silently loses
   // a pose rather than erroring.
+  // There is no idle clip any more: three blends leftover weight toward the bind pose,
+  // which for this model is the standing pose.
   expect(a.clips, 'the rigged asset is missing clips').toEqual(
-    expect.arrayContaining(['flight', 'groom', 'idle', 'proboscis', 'startle', 'walk']))
-  expect(Object.keys(a.bones).length, 'the fly has no skeleton').toBeGreaterThanOrEqual(17)
+    expect.arrayContaining(['flight', 'groom', 'proboscis', 'startle', 'walk']))
+  // an anatomical skeleton: coxa to claw on every leg, head, proboscis, abdomen, wings
+  expect(Object.keys(a.bones).length, 'the fly has no skeleton').toBeGreaterThanOrEqual(70)
 
   // Poll rather than snapshot: a fly that happens to be standing still for a moment
   // moves only its wings, and a single 1.5 s window flagged that as "frozen" once.

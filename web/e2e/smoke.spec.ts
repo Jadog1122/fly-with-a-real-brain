@@ -228,13 +228,22 @@ test('the notebook records an experiment the brain actually does', async ({ page
   type Pet = { engine: {
     stimuli: unknown[]
     world: { fly: { x: number; y: number; h: number }; add: (k: unknown, x: number, y: number) => void }
+    mind: { view: { done: Record<string, unknown> } }
   } }
   await page.evaluate(() => {
     const e = (window as unknown as { __pet: Pet }).__pet.engine, f = e.world.fly
     e.world.add(e.stimuli[0], f.x + 12 * Math.cos(f.h), f.y + 12 * Math.sin(f.h))
   })
-  await expect(page.locator('.mind-found b')).toHaveText('Taste with its feet', { timeout: 30_000 })
-  // and the card carries this fly's own number, not a canned one
+  // Wait on the notebook itself, with the suite's CI budget: in CI's software-rendered
+  // Chromium the page runs many times slower than on a GPU - the world only advances as
+  // fast as the brain and the starved main thread let it - and a 30 s wait on the toast
+  // ran out there. The toast is transient anyway; what must be true is the record.
+  await expect.poll(() => page.evaluate(() =>
+    'taste' in (window as unknown as { __pet: Pet }).__pet.engine.mind.view.done),
+  { message: 'sugar at its feet was never recorded as tasted', timeout: 180_000 }).toBe(true)
+  // and what stays on screen: the tracker's count, and a card carrying this fly's own
+  // number, not a canned one
+  await expect(page.locator('.mind-tracker-open')).toContainText('1/10')
   await page.keyboard.press('n')
   await expect(page.locator('#mind-taste dd').first()).toHaveText(/^\d+ \/s$/)
   expect(errors, `console errors: ${errors.join(' | ')}`).toEqual([])

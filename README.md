@@ -497,6 +497,61 @@ off, crumbs when it eats, and **poking the fly**, which is not a shortcut — a 
 the same 1,417 body bristles the Dust stimulus uses, so the grooming that follows comes
 out of the connectome.
 
+### The mind, and the notebook
+
+The point of the game is to see how the fly's brain works, so the world shows it
+(`web/src/pet/mind.ts` decides what there is to show, `mind3d.ts` draws it; **M**
+toggles it):
+
+- **What reaches it.** Every stimulus in range draws a thread to the organ it drives -
+  feet and mouthparts for taste, eyes for looming, antennae for vibration and smell, the
+  head's bristles for dust - on the side it drives, with pulses running in at the
+  strength of the drive. It is read off the same falloff and left/right split that
+  `sensors.ts` puts on the real sensory neurons.
+- **What it decides.** Under what it is doing, the HUD says *why* - the input driving
+  that behaviour, and "the wander drive we add" when the cause is ours. In the world, an
+  arrow shows where the walking and steering commands would carry it over the next two
+  seconds: the decoded command, not a plan.
+- **Its body.** Pollen from Dust settles on the head bristles and keeps them driven until
+  the connectome's own grooming clears it, at which point the drive and the grooming stop
+  together; the abdomen fills out as it feeds; a nectar drop shrinks as it drinks.
+
+**The field notebook** (**N**) makes a game of it: ten experiments, each asking you to
+make the fly do something - taste with its feet, eat its fill, take off, groom off
+pollen, show which side of its brain answers a threat, have bitter spoil its sugar,
+tickle its antennae, catch the smell artifact out, compare it hungry and full, and get
+its brain stuck. Each is judged on the brain's own descending-neuron rates, and each card
+records this fly's numbers from the moment it happened, next to what we measured headless
+before the experiment went in. None asks for something the model does not do:
+`web/scripts/notebook-headless.mjs` plays all ten against the real model with no browser,
+and `web/scripts/notebook.mjs` against the live game.
+
+Checking them first turned up three things:
+
+- **Left and right cross over.** A threat on the fly's left drives the *right* DNa01 (0
+  and 30 /s), one on its right the left (28 and 0); dust on one side drives the opposite
+  aDN1. That is measured under `sensors.ts`'s own convention - the arena's y grows down
+  the screen, so bearing -90 degrees is the fly's left. The note in `motor.ts` that
+  "looming on the left gives DNa01_left" matches putting the stimulus at +90 degrees,
+  which here is its right, and its turn sign was chosen on that reading. During an escape
+  the decoder does not steer at all, so the looming response looks the same either way.
+- **One antenna is deaf.** Vibration from the fly's left reaches aDN1 (the right one) and
+  it grooms; from its right, nothing, in this connectome.
+- **Some pushes never let go.** Brush the head bristles hard - one poke of the fly does
+  it, and so does Dust - and MN9, the tongue command, locks on at ~220 /s and stays on:
+  still there 90 s later with nothing to taste, in every run. A smell leaves DNa01
+  steering the same way. The network is bistable, and nothing in this model tires - no
+  adaptation, no synaptic depression - so a loop, once cells keep each other going, has
+  no way back to rest. This was in the game before the notebook (a poke has always done
+  it) and nothing said so. Now the game notices - a readout firing hard for seconds with
+  nothing driving it - says what is happening, and offers to restart the brain: every
+  neuron back to rest, the same as reloading the page, with the body and the notebook
+  kept. The tenth experiment is finding it.
+
+A few things in it are ours, and each card says which: the pollen specks drawn on the
+head, hunger turning up the sugar neurons, how fast a meal fills the crop.
+
+### The sound
 ### The sound
 
 Synthesised in WebAudio; there are no samples and nothing to license. The wing buzz sits

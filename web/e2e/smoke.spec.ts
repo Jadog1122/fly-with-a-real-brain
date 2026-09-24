@@ -210,6 +210,37 @@ test('the brain moves the fly, and the fly has a skeleton that moves with it', a
 })
 
 /**
+ * The mind layer end to end: an experiment set, done by the real brain, and recorded.
+ * Sugar at its feet is the one experiment that needs nothing but the model to work -
+ * the judge is MN9's own rate - so if this fails, either the notebook is not watching
+ * the readouts or the readouts are not reaching the page.
+ */
+test('the notebook records an experiment the brain actually does', async ({ page }) => {
+  const errors = collectErrors(page)
+  await page.goto('/pet.html?perf=1')
+  if (!(await hasWebgl2(page))) {
+    test.skip(true, 'no WebGL2 on this engine; the unsupported path is covered above')
+    return
+  }
+  await expect(page.locator('.pet-boot')).toHaveCount(0, { timeout: 180_000 })
+  await expect(page.locator('.mind-tracker-title')).toHaveText('Taste with its feet')
+
+  type Pet = { engine: {
+    stimuli: unknown[]
+    world: { fly: { x: number; y: number; h: number }; add: (k: unknown, x: number, y: number) => void }
+  } }
+  await page.evaluate(() => {
+    const e = (window as unknown as { __pet: Pet }).__pet.engine, f = e.world.fly
+    e.world.add(e.stimuli[0], f.x + 12 * Math.cos(f.h), f.y + 12 * Math.sin(f.h))
+  })
+  await expect(page.locator('.mind-found b')).toHaveText('Taste with its feet', { timeout: 30_000 })
+  // and the card carries this fly's own number, not a canned one
+  await page.keyboard.press('n')
+  await expect(page.locator('#mind-taste dd').first()).toHaveText(/^\d+ \/s$/)
+  expect(errors, `console errors: ${errors.join(' | ')}`).toEqual([])
+})
+
+/**
  * The tutorial page: static, bilingual, and it carries the one interactive thing the
  * whole explanation leans on - the leaky-cup neuron. If the cup stops firing, the
  * page still "loads" fine, so the test taps it the way a ten-year-old would.

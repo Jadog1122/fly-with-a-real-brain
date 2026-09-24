@@ -12,6 +12,8 @@ import { snapshot, restore, read, write, forget, DEFAULTS, type Settings, type Q
 import * as THREE from 'three'
 import { loadNeurons, type NeuronData } from '../data'
 import { Brain } from '../brain'
+import { Mind, type Discovery, type NotebookView, type Stuck } from './mind'
+import { MindView } from './mind3d'
 
 export interface ReadoutView {
   id: string; label: string; cell: string; hz: number; peak: number
@@ -29,6 +31,14 @@ export interface Snapshot {
   brainNote: string
   /** Set when the renderer dropped a tier on its own, so the UI can say so. */
   autoQuality: Quality | null
+  /** why it is doing what it is doing, in a few words (mind.ts) */
+  why: string
+  notebook: NotebookView
+  /** the latest discovery, numbered so the UI cannot miss one between snapshots */
+  discovery: { n: number; d: Discovery } | null
+  mindView: boolean
+  /** a readout running on its own, with nothing driving it (mind.ts) */
+  stuck: Stuck | null
 }
 
 const TH: Record<string, number> = {
@@ -39,6 +49,12 @@ const TONE: Record<string, string> = {
   escape: 'critical', proboscis: 'heal', groom: 'magic', backward: 'guard',
 }
 const PRIORITY = ['escape', 'proboscis', 'groom', 'backward', 'forward', 'turn_a', 'turn_b']
+
+const MIND_KEY = 'fly-mind-view'
+/** On unless someone turned it off: showing the mind is the point of the thing. */
+function readMindView() {
+  try { return localStorage.getItem(MIND_KEY) !== '0' } catch { return true }
+}
 
 /** The protocol worker.ts posts back, as a discriminated union on `type`. */
 type WorkerMessage =
@@ -84,6 +100,15 @@ export class PetEngine {
   autoQuality: Quality | null = null
   picked: StimKind = STIMULI[0]
 
+  /** The fly's mind made visible, and the experiments you can run on it. */
+  readonly mind = new Mind()
+  private mindView: MindView | null = null
+  private discovery: { n: number; d: Discovery } | null = null
+  private mindOn = readMindView()
+  /** Fly time that only ever goes forward - the worker's clock restarts with the brain. */
+  private flyMs = 0
+  private simBase = 0
+
   /** Set by boot(); anything that kills the simulation after start-up lands here. */
   private onError: (e: Error) => void = e => console.error('[pet]', e)
 
@@ -100,6 +125,13 @@ export class PetEngine {
     this.emit = emit
     if (onError) this.onError = onError
     this.scene = new Scene3D(host, this.world)
+    this.mindView = new MindView(this.scene.overlay, this.scene.scene, this.scene.camera, this.scene.fly,
+                                 (id, out) => this.scene.tokenCentre(id, out))
+    this.mindView.setVisible(this.mindOn)
+    // after the fly has been posed for the frame, so the threads meet its organs
+    this.scene.beforeDraw = dt => {
+      if (this.lastDraw) this.mindView?.update(dt, this.mind, this.lastDraw.action, this.world.fly, this.world.stims)
+    }
     // A missing config used to surface as "Unexpected token '<'". Status alone is not
     // enough to catch it: a dev server answers unknown paths with index.html at 200,
     // so the HTML only fails later, at the parse.
@@ -202,6 +234,8 @@ export class PetEngine {
     this.world.restBody()
     this.world.clear()
     this.world.trail.length = 0
+    // a new fly starts clean; what the notebook learned is the player's, and stays
+    this.mind.dust = 0
   }
 
   dispose() {
@@ -221,7 +255,10 @@ export class PetEngine {
       // While paused, follow the clock but do not bank the time: the worker can post one
       // more tick after the pause message, and spending it walked the fly on for a
       // couple of units after it was supposed to have stopped.
-      if (!this.paused) this.simPending = Math.min(this.simPending + (m.simMs - this.simMs), 400)
+      // A restarted brain starts its clock again from zero: bank what it had, so the
+      // whole-brain view's time never runs backwards, and owe the body nothing for it.
+      if (m.simMs < this.simMs) this.simBase += this.simMs
+      else if (!this.paused) this.simPending = Math.min(this.simPending + (m.simMs - this.simMs), 400)
       this.simMs = m.simMs
       const wall = Math.max(m.wallMs, 1) / 1000
       this.stepsPerSec = this.stepsPerSec * 0.88 + (m.steps / wall) * 0.12
@@ -230,9 +267,9 @@ export class PetEngine {
         if (sp.length) {
           const full = new Uint32Array(sp.length)
           for (let k = 0; k < sp.length; k++) full[k] = this.members[sp[k]]
-          this.brain.fireFrame(full, this.simMs / 1000)
+          this.brain.fireFrame(full, (this.simBase + this.simMs) / 1000)
         }
-        this.brain.setNow(this.simMs / 1000)
+        this.brain.setNow((this.simBase + this.simMs) / 1000)
       }
     }
   }
@@ -267,6 +304,28 @@ export class PetEngine {
   }
 
   togglePause() { this.setPaused(!this.paused); return this.paused }
+
+  /** The mind view: threads from what it senses, and where its commands point it. */
+  setMindView(on: boolean) {
+    this.mindOn = on
+    this.mindView?.setVisible(on)
+    try { localStorage.setItem(MIND_KEY, on ? '1' : '0') } catch { /* private mode */ }
+  }
+  get mindViewOn() { return this.mindOn }
+  forgetNotebook() { this.mind.forget(); this.discovery = null }
+
+  /**
+   * Every neuron back to rest. The way out of a loop the model cannot leave by itself
+   * (mind.ts, `stuck`): nothing in it tires, so once cells keep each other firing they
+   * do for good. The body, the world and the notebook are untouched - only the brain's
+   * state goes, the same thing reloading the page does.
+   */
+  restartBrain() {
+    this.worker.postMessage({ type: 'reset' })
+    this.motor = new MotorDecoder()
+    this.lastRates = {}
+    this.simPending = 0
+  }
   setOverview(on: boolean) { this.scene?.setOverview(on) }
   pick(kind: StimKind) {
     this.picked = kind
@@ -367,11 +426,37 @@ export class PetEngine {
         }
       }
     }
+    // Pollen already on the head keeps its bristles bent until it is groomed off: the
+    // same drive the Dust token puts on those neurons, scaled by how much is left
+    // (mind.ts). That closes the loop - the connectome grooms, the specks go, the drive
+    // falls away and the grooming stops on its own. The drive is ours, as every
+    // stimulus's is; what the brain does with it is not.
+    const pollen = this.mind.dust
+    const bristles = pollen > 0.02 ? this.groups.get('bristle') : undefined
+    if (bristles) {
+      for (const side of [bristles.sides.left, bristles.sides.right, bristles.sides.other]) {
+        for (const i of side) rates.set(i, Math.min(400, (rates.get(i) ?? 0) + bristles.rate_hz * 0.8 * pollen))
+      }
+    }
     this.worker.postMessage({ type: 'drive', rates: [...rates] })
 
     const action = this.motor.update(this.lastRates, dtMs)
     this.world.step(action, dtMs, s => this.world.remove(s.id), touching)
     this.lastDraw = { action, perStim }
+
+    // The mind: what reaches which organ, pollen and nectar, and the notebook's judges -
+    // all of it read off the same rates and drive the body is running on.
+    this.flyMs += dtMs
+    const found = this.mind.step({
+      dtMs, simMs: this.flyMs, side: id => this.motor.side(id), action,
+      fly: this.world.fly, stims: this.world.stims, perStim, touching,
+      poked: performance.now() < this.pokeUntil,
+    })
+    this.scene.fly.dust = this.mind.dust
+    if (found) {
+      this.discovery = { n: (this.discovery?.n ?? 0) + 1, d: found }
+      this.audio.blip('proboscis', 0.9)
+    }
     this.audio.update({
       speed: this.world.fly.speed, escape: action.escape,
       eating: (this.world.fly.eating ?? 0) > 0, legPhase: this.world.fly.legPhase,
@@ -416,6 +501,8 @@ export class PetEngine {
       realtime: this.stepsPerSec / 10000,
       readouts, pops: this.pops, brainNote: this.brainNote,
       autoQuality: this.autoQuality,
+      why: this.mind.why, notebook: this.mind.view, discovery: this.discovery,
+      mindView: this.mindOn, stuck: this.mind.stuck && { ...this.mind.stuck },
     })
     // one-shot: cleared here rather than by the UI, so the notice cannot re-fire if
     // the view remounts

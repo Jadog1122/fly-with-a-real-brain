@@ -79,4 +79,6 @@ export class MotorDecoder {
   }
 
   rate(id: string) { const v = this.s[id]; return v ? v[0] + v[1] : 0 }
+  /** The same smoothed rate, left and right apart (the notebook compares the sides). */
+  side(id: string): [number, number] { const v = this.s[id]; return v ? [v[0], v[1]] : [0, 0] }
 }

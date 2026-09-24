@@ -13,6 +13,8 @@ import { BootOverlay, type BootState } from './BootOverlay'
 import { missingFeatures } from '../support'
 import { SettingsPanel } from './SettingsPanel'
 import { DEFAULTS, type Settings } from './save'
+import { Tracker, Notebook, DiscoveryToast } from './Notebook'
+import type { Discovery } from './mind'
 
 const BAR_TYPE: Record<string, string> = {
   escape: 'health', proboscis: 'experience', groom: 'stamina',
@@ -57,6 +59,12 @@ export default function App() {
   const [autoNote, setAutoNote] = useState<string | null>(null)
   const [showOrders, setShowOrders] = useState(false)
   const [settings, setSettings] = useState<Settings>({ ...DEFAULTS, picked: 'sugar' })
+  // the mind layer: its view in the world, the notebook, and the last thing discovered
+  const [mindOn, setMindOn] = useState(true)
+  const [bookOpen, setBookOpen] = useState(false)
+  const [bookFocus, setBookFocus] = useState<string | null>(null)
+  const [found, setFound] = useState<Discovery | null>(null)
+  const seen = useRef(0)
   const [boot, setBoot] = useState<BootState>(() => {
     const missing = missingFeatures()
     return missing.length ? { kind: 'unsupported', missing } : { kind: 'loading' }
@@ -69,6 +77,7 @@ export default function App() {
 
     const e = new PetEngine()
     engineRef.current = e
+    setMindOn(e.mindViewOn)
     let timer = 0, pending: Snapshot | null = null
     const flush = () => {
       if (pending) { setSnap(pending); setBoot({ kind: 'ready' }) }
@@ -104,7 +113,9 @@ export default function App() {
       const t = ev.target as HTMLElement | null
       if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return
       if (ev.key === 'v' || ev.key === 'V') setOverview(o => !o)
-      if (ev.key === 'Escape') { setShowSettings(false); setConfirmReset(false) }
+      if (ev.key === 'm' || ev.key === 'M') { const on = !e.mindViewOn; e.setMindView(on); setMindOn(on) }
+      if (ev.key === 'n' || ev.key === 'N') { setBookFocus(null); setBookOpen(o => !o) }
+      if (ev.key === 'Escape') { setShowSettings(false); setConfirmReset(false); setBookOpen(false) }
       if (ev.key === 'p' || ev.key === 'P' || ev.key === ' ') {
         ev.preventDefault()               // Space would otherwise re-click a focused button
         setPaused(e.togglePause())
@@ -118,6 +129,14 @@ export default function App() {
   }, [])
 
   useEffect(() => { engineRef.current?.setOverview(overview) }, [overview])
+
+  // A discovery arrives numbered, so one landing between two snapshots is not lost.
+  useEffect(() => {
+    const d = snap?.discovery
+    if (!d || d.n <= seen.current) return
+    seen.current = d.n
+    setFound(d.d)
+  }, [snap?.discovery])
 
   // The renderer drops a tier on its own if it cannot hold the frame rate. Say so
   // rather than silently changing what the user chose.
@@ -177,6 +196,8 @@ export default function App() {
         </div>
         <div className="pet-doing">
           <b>{snap?.doing ?? '…'}</b>
+          {/* the cause, from mind.ts: what is driving the behaviour it shows */}
+          {snap?.why && <span className="pet-why">because {snap.why}</span>}
           <i>{snap
             ? `${Math.round(snap.stepsPerSec).toLocaleString()} steps/s${
                 snap.fps ? ` · ${Math.round(snap.fps)} fps` : ''}`
@@ -212,6 +233,12 @@ export default function App() {
                   aria-pressed={paused}
                   onClick={() => setPaused(engine!.togglePause())}>
             {paused ? '▶' : '❚❚'}
+          </button>
+          <button className={`rpg-ui-btn${mindOn ? ' on' : ''}`}
+                  title="Show what it senses and where its brain is steering it (M)"
+                  aria-pressed={mindOn}
+                  onClick={() => { const on = !mindOn; engine?.setMindView(on); setMindOn(on) }}>
+            Mind
           </button>
           <button className={`rpg-ui-btn${showSettings ? ' on' : ''}`} title="Settings"
                   aria-expanded={showSettings}
@@ -288,7 +315,47 @@ export default function App() {
         <span><b>click fly</b> poke it</span>
         <span><b>drag</b> look around</span>
         <span><b>V</b> {overview ? 'follow' : 'overview'}</span>
+        <span><b>M</b> mind view &middot; <b>N</b> notebook</span>
       </div>
+
+      {snap?.notebook && (
+        <Tracker view={snap.notebook} onOpen={() => { setBookFocus(null); setBookOpen(true) }} />
+      )}
+      {snap?.notebook && (
+        <Notebook open={bookOpen} view={snap.notebook} focus={bookFocus}
+                  onClose={() => setBookOpen(false)}
+                  onForget={() => { engine?.forgetNotebook(); seen.current = 0 }} />
+      )}
+      {/* The model's own failure, shown rather than hidden: a readout running on its
+          own (mind.ts). A restart is the game's, and the notice says what it is doing. */}
+      {snap?.stuck && (
+        <div className="rpg-ui-glass-panel mind-stuck" role="status">
+          <b>Its brain is stuck in a loop</b>
+          <span>
+            {snap.stuck.readout === 'proboscis'
+              ? <>MN9, the tongue command, is firing at <em>{Math.round(snap.stuck.rate)} /s</em> with
+                  nothing to taste. The last thing to drive it was {snap.stuck.cause}.</>
+              : <>DNa01 is steering at <em>{Math.round(snap.stuck.rate)} /s</em> with nothing
+                  there. The last thing to drive it was {snap.stuck.cause}.</>}
+            {' '}Cells in this network are keeping each other firing, and nothing in the model
+            tires, so it will not stop by itself.
+          </span>
+          <div className="mind-found-row">
+            <button className="rpg-ui-btn" onClick={() => engine?.restartBrain()}
+                    title="Every neuron back to rest. The body and the notebook stay.">
+              Restart its brain
+            </button>
+            <button className="rpg-ui-btn" onClick={() => { setBookFocus('stuck'); setBookOpen(true) }}>
+              Why?
+            </button>
+          </div>
+        </div>
+      )}
+      {found && (
+        <DiscoveryToast d={found}
+                        onRead={() => { setBookFocus(found.id); setBookOpen(true); setFound(null) }}
+                        onClose={() => setFound(null)} />
+      )}
 
       <button className="rpg-ui-fab pet-brainfab"
               title="Show every spike in the brain"

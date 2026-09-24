@@ -11,7 +11,7 @@ export default defineConfig({
     environment: 'node',
     coverage: {
       provider: 'v8',
-      include: ['src/pet/{sim,sensors,motor,world,packed,BootOverlay,ErrorBoundary}.ts?(x)',
+      include: ['src/pet/{sim,sensors,motor,world,packed,mind,BootOverlay,ErrorBoundary}.ts?(x)',
                 'src/support.ts'],
     },
   },

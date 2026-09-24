@@ -1634,6 +1634,7 @@ export class Scene3D {
       airborne: this.airborne,
       // the head leads a turn, as a fly's does
       turn: f.turnRate,
+      satiety: 1 - f.hunger,
     })
 
     // The contact shadow stays on the ground and spreads and fades as it climbs, which
@@ -1736,7 +1737,33 @@ export class Scene3D {
     this.updateFocus()
 
     if (this.finish) this.finish.uniforms.time.value = (this.finish.uniforms.time.value + dt * 7) % 41
+    // Last word before the frame is drawn, once the fly and the camera have both moved -
+    // the mind view hangs its threads off the fly's organs, and a frame earlier they
+    // trailed behind a fly in flight.
+    this.beforeDraw?.(dt)
     if (this.composer) this.composer.render()
     else this.renderer.render(this.scene, this.camera)
+    // Drawn on top of the finished frame, like a HUD. Inside the scene, GTAO renders
+    // every mesh into its depth pass with its own material - so a glowing overlay was
+    // treated as solid and came out as a dark shadow of itself.
+    if (this.overlay.children.length) {
+      this.renderer.autoClear = false
+      this.renderer.render(this.overlay, this.camera)
+      this.renderer.autoClear = true
+    }
+  }
+
+  beforeDraw?: (dt: number) => void
+  /** Things that annotate the world rather than belong to it (the mind view). */
+  readonly overlay = new THREE.Scene()
+
+  private tokenBox = new THREE.Box3()
+  /** The middle of a stimulus's token as it is drawn, the falling rock included. */
+  tokenCentre(id: number, out: THREE.Vector3): boolean {
+    const o = this.stimObjects.get(id)
+    if (!o) return false
+    o.updateWorldMatrix(true, true)
+    this.tokenBox.setFromObject(o).getCenter(out)
+    return true
   }
 }

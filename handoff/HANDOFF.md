@@ -246,3 +246,72 @@ front of the fly. Frame rate unchanged (35 fps at 2x DPR on this Mac).
 what it senses, what it decides, and why — with actions you can see. That will touch
 `App.tsx`/`engine.ts`/`pet.css`. I will keep it in new files where I can and write down
 anything I change in yours.
+
+### 2026-09-24 — fly-model session — the mind layer: seeing what the fly senses and decides
+
+The user's second request: a game mechanism whose purpose is to show the fly's mental
+model, with the fly doing things you can see. What went in:
+
+- **Mind view** (`src/pet/mind.ts` decides, `src/pet/mind3d.ts` draws; **M** toggles):
+  threads from each stimulus to the organ it drives, on the side it drives; a glow on
+  each organ; an arrow showing where the decoded walk/steer command points; a "because
+  ..." line under what it is doing in the HUD.
+- **Body state**: pollen specks on the head (Dust), the abdomen swelling as it feeds, a
+  nectar drop that shrinks as it drinks. The pollen feeds back as bristle drive until it
+  is groomed off, so the grooming stops by itself (engine.ts, after the poke).
+- **Field notebook** (**N**; `Notebook.tsx`, `mind.css`): ten experiments judged on the
+  brain's own descending rates, persisted in `localStorage['fly-notebook-v1']`.
+  `web/scripts/notebook-headless.mjs` plays all ten against the real model with no
+  browser (it bundles the current source in memory - `bake/_pet_headless.mjs` is from
+  before flight and I left it alone); `web/scripts/notebook.mjs` plays them in the game.
+
+**Changes in files you own, all additive:**
+
+- `engine.ts`: creates `Mind` and `MindView`, calls `mind.step()` every tick after
+  `world.step`, adds the pollen drive before posting to the worker, five snapshot fields
+  (`why`, `notebook`, `discovery` - numbered so the 50 ms snapshot throttle cannot drop
+  one - `mindView` and `stuck`), `setMindView()` / `forgetNotebook()`, and
+  `restartBrain()`, which sends the worker the `reset` it already understood but nothing
+  sent. The worker's clock restarts from zero on that, so `onWorker` no longer adds a
+  negative interval to `simPending`, and the whole-brain view gets a banked offset
+  (`simBase`) so its time never runs backwards; the mind gets its own forward-only clock.
+- `App.tsx`: the why line, a Mind toggle in the title row, M and N keys, a legend line,
+  and the tracker, notebook and discovery toast.
+- `scene3d.ts`: a `beforeDraw` hook called after the fly is posed, a second `overlay`
+  scene drawn after the composer (inside the scene GTAO renders every mesh into its
+  depth pass with its own material, which turned the glowing threads into dark shadows
+  of themselves), `tokenCentre()`, and `satiety` in the fly block's `fly.update` call.
+- `motor.ts`: a read-only `side(id)` next to `rate(id)`.
+- `vitest.config.ts`: `mind` in the coverage list. `e2e/smoke.spec.ts`: one test - sugar
+  at its feet is discovered and the card carries this fly's own MN9 rate.
+- `how.html`: experiment 3 said tapping the fly makes the giant fibre "slam to full". It
+  does not: a tap drives the head bristles, and measured headless (three seeds) that
+  gives grooming (aDN1 ~230 /s) and the tongue (MN9 ~230 /s) with the giant fibre at 0.
+  It now uses Looming, says what a tap really does, and points at the notebook - both
+  languages.
+
+**Please read - the brain gets stuck, and it always has.** One poke of the fly - 700 ms of
+full bristle drive, `tap()` - locks MN9 on at ~220 /s, and it is still on 90 s later with
+nothing there: measured headless, three seeds of three, and Dust does the same. A smell
+leaves DNa01 at 20-40 /s the same way (looming and vibration let go). The network is
+bistable and nothing in the LIF model tires, so it never comes back by itself: after the
+first poke the proboscis stays out and the HUD says "feeding" for good. The notebook's
+tongue experiments were failing because of it. `mind.ts` now detects it (a readout firing
+hard for 3 s with nothing driving it), the HUD says so, and a notice offers "Restart its
+brain". I did not change the model: the engine is validated against Brian2, and adding
+adaptation would break that.
+
+**Please read - left and right.** The arena's y grows down the screen, so bearing -90
+degrees is the fly's LEFT (`sensors.ts` says so, and the 3-D scene agrees: I checked
+which eye the threads reach). Measured that way, laterality in this connectome is
+**crossed**: looming on its left gives DNa01 left 0 / right 30, on its right 28 / 0; dust
+on one side drives the opposite aDN1; vibration grooms from its left and does nothing
+from its right. The note in `motor.ts` ("looming on the left gives DNa01_left 22
+spikes") matches placing the stimulus at +90 degrees, which here is the fly's right, and
+the turn sign was chosen on that reading. I have **not** changed `motor.ts`: during an
+escape the decoder does not steer at all, so the looming response looks identical either
+way, and the sign is your call. My own first probe made the same mistake, which is how I
+found it.
+
+Verified: `npm run check` green (114 tests, 14 new), Chromium and Firefox e2e, and the
+scripted player in `scripts/notebook.mjs`.

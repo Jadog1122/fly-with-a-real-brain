@@ -82,9 +82,27 @@ interface Driven {
   left: THREE.Vector3
 }
 
+/**
+ * Where each sense the brain is told about actually sits on the body. The mind view draws
+ * a stimulus reaching the fly at these points, so they have to be the real organs:
+ *   antenna   Johnston's organ (vibration) and the olfactory neurons (smell)
+ *   eye       LC4, the looming detectors, look out through the compound eyes
+ *   foot      the tarsal taste neurons, on the front feet
+ *   labellum  the taste pads at the tip of the proboscis, sugar and bitter both
+ *   head      the head bristles - which is what "Dust" drives: every bristle neuron in
+ *             this connectome is on the head (antenna base, frons, eye, proboscis)
+ */
+export type Organ = 'antenna' | 'eye' | 'foot' | 'labellum' | 'head'
+export type Side = 'left' | 'right'
+
 // scratch, so the per-frame code allocates nothing
 const QA = new THREE.Quaternion()
 const QB = new THREE.Quaternion()
+const V1 = new THREE.Vector3()
+const M1 = new THREE.Matrix4()
+
+// How many pollen specks the head can carry, and how fast grooming visibly sheds them.
+const SPECKS = 56
 
 export class Fly3D {
   readonly root = new THREE.Group()
@@ -114,6 +132,15 @@ export class Fly3D {
   private twitchSide = 1
   private nextTwitch = 1.5
   private ready = false
+
+  // what the body shows of the fly's state, rather than of what it is doing
+  private anchors = new Map<string, THREE.Object3D>()
+  private specks?: THREE.InstancedMesh
+  private specksShown = 0
+  private fallen: THREE.Vector3[] = []
+  private belly: { bone: THREE.Object3D; axis: 'x' | 'y' | 'z'; grow: number }[] = []
+  /** Pollen on the head, 0..1; set by the engine from mind.ts when update() is not told. */
+  dust = 0
 
   constructor() {
     this.rig.add(this.pose)
@@ -179,6 +206,8 @@ export class Fly3D {
     const stride = Number(src.getObjectByName('Armature')?.userData.stride)
     this.strideRoot = (Number.isFinite(stride) && stride > 0 ? stride : 0.9) * norm
 
+    this.findOrgans(src)
+
     this.pose.add(src)
     this.mixer = new THREE.AnimationMixer(src)
     for (const clip of gltf.animations) {
@@ -196,6 +225,135 @@ export class Fly3D {
     this.ready = true
   }
 
+  /**
+   * Pin the sense organs, the pollen specks and the belly to the skeleton. The rig binds
+   * every vertex to exactly one bone, so an organ is simply the vertices of its bone -
+   * measured here in the bind pose, before the model inherits the root's scale, and
+   * pinned to that bone so it follows every clip.
+   */
+  private findOrgans(src: THREE.Object3D) {
+    const byBone = new Map<string, THREE.Vector3[]>()
+    const eye: THREE.Vector3[] = []
+    let bones: THREE.Bone[] = []
+    src.traverse(o => {
+      const m = o as THREE.SkinnedMesh
+      if (!m.isSkinnedMesh) return
+      bones = m.skeleton.bones
+      m.skeleton.update()
+      const si = m.geometry.getAttribute('skinIndex')
+      const sw = m.geometry.getAttribute('skinWeight')
+      if (!si || !sw) return
+      const isEye = (m.material as THREE.Material).name === 'fly_eye'
+      for (let i = 0; i < si.count; i++) {
+        let best = 0, most = -1
+        for (let k = 0; k < 4; k++) {
+          const w = sw.getComponent(i, k)
+          if (w > most) { most = w; best = si.getComponent(i, k) }
+        }
+        const p = m.getVertexPosition(i, new THREE.Vector3()).applyMatrix4(m.matrixWorld)
+        if (isEye) { eye.push(p); continue }
+        const name = m.skeleton.bones[best]?.name
+        if (!name) continue
+        let list = byBone.get(name)
+        if (!list) byBone.set(name, list = [])
+        list.push(p)
+      }
+    })
+    const bone = (name: string) => bones.find(b => b.name === name)
+    const pin = (key: string, on: THREE.Object3D | undefined, at: THREE.Vector3 | null) => {
+      if (!on || !at) return
+      const a = new THREE.Object3D()
+      a.position.copy(on.worldToLocal(at.clone()))
+      on.add(a)
+      this.anchors.set(key, a)
+    }
+    const centroid = (ps: THREE.Vector3[] | undefined) => {
+      if (!ps?.length) return null
+      const c = new THREE.Vector3()
+      for (const p of ps) c.add(p)
+      return c.divideScalar(ps.length)
+    }
+    // the share of an organ's points furthest along a direction: its outer surface
+    const outermost = (ps: THREE.Vector3[], dir: THREE.Vector3, share: number) =>
+      centroid([...ps].sort((a, b) => b.dot(dir) - a.dot(dir))
+        .slice(0, Math.max(1, Math.round(ps.length * share))))
+
+    const head = bone('head')
+    for (const [side, s] of [['left', 1], ['right', -1]] as const) {
+      const ab = bone(`antenna_${side}`)
+      const ant = byBone.get(`antenna_${side}`)
+      if (ab && ant) {
+        const base = ab.getWorldPosition(new THREE.Vector3())
+        pin(`antenna_${side}`, ab,
+            ant.reduce((far, p) => p.distanceTo(base) > far.distanceTo(base) ? p : far, base))
+      }
+      const eyeSide = eye.filter(p => p.z * s > 0)
+      if (eyeSide.length) pin(`eye_${side}`, head, outermost(eyeSide, LEFT.clone().multiplyScalar(s), 0.12))
+      pin(`foot_${side}`, bone(`tarsal_claw_T1_${side}`), centroid(byBone.get(`tarsal_claw_T1_${side}`)))
+    }
+    pin('labellum_mid', bone('labrum_left'),
+        centroid([...byBone.get('labrum_left') ?? [], ...byBone.get('labrum_right') ?? []]))
+    pin('head_mid', head, centroid(byBone.get('head')))
+
+    // Pollen specks where the bristles are: mostly over the eyes, the rest on the head
+    // capsule. Parented to the head, so they ride every nod and every grooming pass.
+    if (head) {
+      const hc = centroid(byBone.get('head')) ?? head.getWorldPosition(new THREE.Vector3())
+      const pool = [...eye, ...eye, ...byBone.get('head') ?? []]
+      let seed = 7
+      const rnd = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296)
+      const hs = head.getWorldScale(new THREE.Vector3()).x || 1
+      // bigger than real pollen, which is a few hundredths of a millimetre: at the chase
+      // camera's distance real grains would be a pixel, and the point is to see them
+      const r = this.bodyLen * 0.02 / hs
+      const im = new THREE.InstancedMesh(
+        new THREE.IcosahedronGeometry(1, 0),
+        new THREE.MeshStandardMaterial({ color: 0xffd65a, roughness: 0.5, emissive: 0x6a4a08 }),
+        SPECKS)
+      im.frustumCulled = false
+      im.count = 0
+      const q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3()
+      for (let i = 0; i < SPECKS && pool.length; i++) {
+        const p = pool[Math.floor(rnd() * pool.length)]
+        const out = p.clone().sub(hc).normalize()
+        const local = head.worldToLocal(p.clone().addScaledVector(out, this.bodyLen * 0.006))
+        q.setFromEuler(e.set(rnd() * 6, rnd() * 6, rnd() * 6))
+        const k = r * (0.6 + rnd() * 0.9)
+        im.setMatrixAt(i, M1.compose(local, q, sc.set(k, k * (0.7 + rnd() * 0.5), k)))
+      }
+      head.add(im)
+      this.specks = im
+    }
+
+    // The belly: a crop full of sugar distends the abdomen. Widen the middle segments and
+    // take the width back off at the tip, across each bone, never along it - the chain's
+    // own axis is whichever way its next bone lies.
+    for (const [name, grow] of [['abdomen_2', 1], ['abdomen_6', -1]] as const) {
+      const b = bone(name)
+      const next = b?.children.find(c => (c as THREE.Bone).isBone)
+      if (!b || !next) continue
+      const d = next.position
+      const ax = Math.abs(d.x) >= Math.max(Math.abs(d.y), Math.abs(d.z)) ? 'x'
+        : Math.abs(d.y) >= Math.abs(d.z) ? 'y' : 'z'
+      this.belly.push({ bone: b, axis: ax, grow })
+    }
+  }
+
+  /** Where a sense organ is in the world; false until the model has loaded. */
+  organ(organ: Organ, side: Side, out: THREE.Vector3): boolean {
+    const a = this.anchors.get(`${organ}_${side}`) ?? this.anchors.get(`${organ}_mid`)
+    if (!a) return false
+    a.getWorldPosition(out)
+    return true
+  }
+
+  /** World positions of the specks groomed off since the last call. */
+  takeFallen(): THREE.Vector3[] {
+    const out = this.fallen
+    this.fallen = []
+    return out
+  }
+
   /** Park a clip at a fraction of its own length. */
   private at(name: string, frac: number) {
     const a = this.act[name]
@@ -210,6 +368,10 @@ export class Fly3D {
   update(dt: number, o: {
     speed: number; legPhase: number; escape: boolean; proboscis: number
     groom: number; startle: number; airborne: number; turn?: number
+    /** 0 starving .. 1 just fed: how full the crop is */
+    satiety?: number
+    /** 0..1, pollen on the head bristles (mind.ts) */
+    dust?: number
   }) {
     // Behaviours arrive as booleans or raw rates; easing them makes each transition a
     // blend rather than a one-frame cut, at the same wall-clock pace at any frame rate.
@@ -314,5 +476,30 @@ export class Fly3D {
     this.pose.rotation.z = -air * .22                            // nose up
 
     if (this.eyeMat) this.eyeMat.emissive.setHex(EYE).multiplyScalar(.06 + o.startle * .4)
+
+    // The belly, about the model's own build at half full: thinner starving, rounder fed.
+    this.fill = ease(this.fill, o.satiety ?? 0.5, 1.5, dt)
+    const k = 1 + 0.22 * (this.fill - 0.5)
+    for (const b of this.belly) {
+      const s = b.grow > 0 ? k : 1 / k
+      b.bone.scale.set(b.axis === 'x' ? 1 : s, b.axis === 'y' ? 1 : s, b.axis === 'z' ? 1 : s)
+    }
+
+    // Pollen on the head. Specks going means grooming took them: hand their positions
+    // over so the mind view can drop them, rather than have them blink out.
+    const im = this.specks
+    if (im) {
+      const n = Math.round(THREE.MathUtils.clamp(o.dust ?? this.dust, 0, 1) * SPECKS)
+      if (n < this.specksShown && this.fallen.length < 60) {
+        for (let i = n; i < this.specksShown; i++) {
+          im.getMatrixAt(i, M1)
+          this.fallen.push(V1.setFromMatrixPosition(M1.premultiply(im.matrixWorld)).clone())
+        }
+      }
+      this.specksShown = n
+      im.count = n
+    }
   }
+
+  private fill = 0.5
 }

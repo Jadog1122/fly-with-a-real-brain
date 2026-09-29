@@ -41,6 +41,10 @@ jobs:
       - name: Build
         run: npx vite build
 
+      # the game server: bundled with the same simulation modules the tests just ran
+      - name: Build the game server
+        run: npm run play:build
+
       - name: Check the built pages actually boot
         run: |
           npx vite preview --port 4173 --strictPort &
@@ -73,8 +77,9 @@ jobs:
 
       - run: npx vite build
 
-      # Chromium, Firefox and WebKit all boot the pet and the explorer. WebKit is the
-      # one that cannot be run on the macOS dev host, so this is its only coverage.
+      # Chromium, Firefox and WebKit all boot the pet, the explorer and the meadow.
+      # WebKit is the one that cannot be run on the macOS dev host, so this is its only
+      # coverage. Playwright starts the game server itself (playwright.config.ts).
       - name: Cross-browser smoke tests
         run: npx playwright test
 

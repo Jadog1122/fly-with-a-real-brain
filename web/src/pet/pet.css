@@ -63,13 +63,16 @@ html, body { background: var(--ui-bg); }
 .pet-legend b { font-weight: 700; color: var(--ui-accent); }
 .pet-legend span { opacity: .82; }
 
-.rpg-ui-dock-slot { flex-direction: column; gap: 2px; width: 78px; height: 68px; cursor: pointer; }
-/* line-height 1 cropped the emoji's descender box by 2px */
-.pet-slot-emoji { font-size: 22px; line-height: 1.18; }
+.rpg-ui-dock-slot { flex-direction: column; gap: 4px; width: 78px; height: 68px; cursor: pointer; }
+.pet-slot-icon {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  color: var(--stim, var(--ui-text)); background: color-mix(in oklch, var(--stim, var(--ui-text)) 16%, transparent);
+}
+.rpg-ui-dock-slot:not(.active) .pet-slot-icon { color: var(--ui-dim); background: oklch(100% 0 0 / .06); }
 .pet-slot-name { font-size: 11px; opacity: .88; }
 .rpg-ui-dock-slot.pet-artifact { border-style: dashed; }
 
-.pet-brainfab { position: absolute; right: 20px; bottom: 20px; z-index: 22; font-size: 22px; }
+.pet-brainfab { position: absolute; right: 20px; bottom: 20px; z-index: 22; color: var(--ui-text); }
 .pet-brainpanel {
   position: absolute; right: 14px; bottom: 84px; width: 320px; z-index: 21;
   padding: 12px 14px; height: 0; opacity: 0; pointer-events: none;
@@ -77,7 +80,7 @@ html, body { background: var(--ui-bg); }
 }
 .pet-brainpanel.open { height: 280px; opacity: 1; pointer-events: auto; }
 .pet-brainpanel h2 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
-.pet-brainhost { height: 212px; border-radius: 8px; overflow: hidden; background: #0a0703; margin-top: 6px; }
+.pet-brainhost { height: 212px; border-radius: 8px; overflow: hidden; background: oklch(10% 0.01 245); margin-top: 6px; }
 
 /* damage numbers, on the library's own float keyframe */
 .pet-pop {
@@ -85,12 +88,12 @@ html, body { background: var(--ui-bg); }
   display: flex; flex-direction: column; align-items: center; line-height: 1.12;
   animation: rpg-float 1.3s ease-out forwards;
 }
-.pet-pop b { font-size: 30px; font-weight: 800; text-shadow: 0 3px 0 rgba(20,12,4,.55), 0 0 16px currentColor; }
+.pet-pop b { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; text-shadow: 0 2px 6px oklch(0% 0 0 / .6); }
 .pet-pop i { font-size: 11px; font-style: normal; letter-spacing: .14em; text-transform: uppercase; opacity: .9; }
-.pet-pop.tone-danger { color: #ff7a52 }
-.pet-pop.tone-gold   { color: #ffcf5e }
-.pet-pop.tone-leaf   { color: #a9e06a }
-.pet-pop.tone-plain  { color: #ffe9c4 }
+.pet-pop.tone-danger { color: oklch(78% 0.14 25) }
+.pet-pop.tone-gold   { color: var(--ui-accent) }
+.pet-pop.tone-leaf   { color: var(--ui-good) }
+.pet-pop.tone-plain  { color: var(--ui-text) }
 
 /* ---------------------------------------------------------------- narrow --
    Most people open this link on a phone, so this is a layout, not a fallback.
@@ -147,7 +150,7 @@ html, body { background: var(--ui-bg); }
   }
   .rpg-ui-dock::-webkit-scrollbar { display: none; }
   .rpg-ui-dock-slot { flex: 0 0 auto; width: 66px; height: 62px; }
-  .pet-slot-emoji { font-size: 21px; }
+  .pet-slot-icon { width: 26px; height: 26px; }
   .pet-slot-name { font-size: 10px; }
 
   .pet-legend { display: none; }          /* keyboard hints are useless here */
@@ -177,7 +180,7 @@ html, body { background: var(--ui-bg); }
 .pet-boot {
   position: fixed; inset: 0; z-index: 60;
   display: flex; align-items: center; justify-content: center;
-  background: radial-gradient(120% 90% at 50% 40%, rgba(38, 27, 16, .72), rgba(12, 8, 4, .93));
+  background: radial-gradient(90% 80% at 50% 40%, oklch(14% 0.01 245 / .5), oklch(11% 0.01 245 / .86));
 }
 .pet-boot-card { max-width: 400px; padding: 22px 24px; text-align: center; }
 .pet-boot-card h2 { margin: 0 0 6px; font-size: 17px; }
@@ -188,7 +191,7 @@ html, body { background: var(--ui-bg); }
 .pet-boot-card .rpg-ui-btn { margin-top: 4px; }
 .pet-boot-spin {
   width: 26px; height: 26px; margin: 2px auto 12px; border-radius: 50%;
-  border: 3px solid rgba(226, 186, 118, .22); border-top-color: var(--ui-accent);
+  border: 2px solid var(--ui-hairline); border-top-color: var(--ui-accent);
   animation: pet-spin .9s linear infinite;
 }
 @keyframes pet-spin { to { transform: rotate(360deg) } }

@@ -1,35 +1,41 @@
-/* The product's palette and design tokens, shared by both pages.
+/* The product's palette and design tokens, shared by every page.
 
-   It lived inside the pet's ui.css, which is how the explorer drifted onto a
-   different look twice. One file, imported by both. */
+   Ink glass: a neutral, slightly cool dark surface, so the sunlit meadow underneath is
+   the colour in the picture and the interface is the quiet thing over it. One warm
+   accent - pale honey - used for what is yours and what matters right now, and for
+   nothing else. It replaced a warm brown glass with an amber accent: over green grass
+   and brown ground that read as mud, and the amber fought the sun. */
 
 :root {
-  /* One neutral surface ramp with a slight warm tint, and a single accent.
-     No gradients on chrome: modern depth comes from blur and a hairline. */
-  --ui-bg:            oklch(19% 0.012 75);
-  --ui-surface:       oklch(24% 0.013 75 / 0.72);
-  --ui-surface-solid: oklch(22% 0.013 75);
-  --ui-raised:        oklch(31% 0.015 75 / 0.6);
-  --ui-hairline:      oklch(100% 0 0 / 0.09);
-  --ui-hairline-soft: oklch(100% 0 0 / 0.055);
+  --ui-bg:            oklch(15% 0.010 245);
+  --ui-surface:       oklch(17% 0.010 245 / 0.64);
+  --ui-surface-solid: oklch(17% 0.010 245);
+  --ui-raised:        oklch(100% 0 0 / 0.07);
+  --ui-hairline:      oklch(100% 0 0 / 0.11);
+  --ui-hairline-soft: oklch(100% 0 0 / 0.06);
 
-  --ui-text:          oklch(97% 0.008 85);
-  --ui-dim:           oklch(97% 0.008 85 / 0.62);
-  --ui-faint:         oklch(97% 0.008 85 / 0.38);
+  --ui-text:          oklch(97% 0.004 90);
+  --ui-dim:           oklch(97% 0.004 90 / 0.62);
+  --ui-faint:         oklch(97% 0.004 90 / 0.4);
 
-  --ui-accent:        oklch(80% 0.14 75);
-  --ui-accent-dim:    oklch(80% 0.14 75 / 0.16);
-  --ui-good:          oklch(78% 0.15 145);
-  --ui-warn:          oklch(80% 0.15 60);
-  --ui-bad:           oklch(68% 0.18 25);
+  --ui-accent:        oklch(87% 0.11 86);
+  --ui-accent-dim:    oklch(87% 0.11 86 / 0.14);
+  --ui-good:          oklch(82% 0.11 150);
+  --ui-warn:          oklch(84% 0.12 70);
+  --ui-bad:           oklch(72% 0.14 25);
 
-  --ui-r-sm: var(--radius-2);
-  --ui-r:    var(--radius-3);
-  --ui-r-lg: 18px;
-  --ui-blur: blur(24px) saturate(170%);
-  --ui-ease: var(--ease-3);
+  --ui-r-sm: 6px;
+  --ui-r:    10px;
+  --ui-r-lg: 14px;
+  --ui-blur: blur(18px) saturate(130%);
+  --ui-ease: cubic-bezier(.25, 0, .3, 1);
+  /* a contact shadow and a soft one, both darker than the ground, never a grey halo */
+  --ui-shadow: 0 1px 1px oklch(0% 0 0 / .18), 0 14px 36px -12px oklch(0% 0 0 / .5);
 
-  --ui-font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --ui-font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, 'Segoe UI Variable',
+             'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* for a title or two: the system's book serif, on every platform, with nothing to load */
+  --ui-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia,
+                'Noto Serif', 'Songti SC', serif;
   --ui-num: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
 }
-

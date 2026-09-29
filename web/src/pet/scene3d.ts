@@ -1322,7 +1322,11 @@ export class Scene3D {
 
     this.ray.set(t, dir)
     this.ray.far = want
-    const hits = this.ray.intersectObjects(this.occluders, false)
+    // Only the ground-level chase camera is ever behind a blade of grass. From the
+    // overview the camera looks down on the whole arena from ~970 units up, and a moss
+    // cushion under it is scenery to look at, not something in the way - treating it as
+    // one pulled the camera in to 340 units and showed a third of the arena.
+    const hits = this.overview ? [] : this.ray.intersectObjects(this.occluders, false)
     // pull in to the nearest blocker, but never closer than the orbit's own minimum
     const free = hits.length ? Math.max(this.controls.minDistance, hits[0].distance - 14) : want
     // ease out, snap in: popping back out as a blade passes is far more distracting
@@ -1528,6 +1532,10 @@ export class Scene3D {
       ? new THREE.Vector3(this.world.w / 2, 820, this.world.h / 2 + 520)
       : new THREE.Vector3(f.x - Math.cos(f.h) * 300, 78, f.y - Math.sin(f.h) * 300)
     this.camera.position.copy(p)
+    // The chase camera holds its distance with camDist (avoidOccluders), which only ever
+    // eases outward from where it was. Left at the follow camera's 300 it pulled the
+    // overview straight back in to ~340 units - a third of the arena. A cut is a cut.
+    this.camDist = p.distanceTo(this.camTarget)
     // The overview sits ~970 units out, which put the whole arena inside a fog band
     // tuned for the follow camera and washed it to flat grey.  Push the haze back so
     // the wide shot keeps its colour; restore the close range on the way down.

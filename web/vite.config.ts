@@ -15,7 +15,16 @@ export default defineConfig({
   // was replaced by @rpgjs/ui-css, which is CSS-only and needs no pre-bundling.)
   resolve: { dedupe: ['react', 'react-dom'] },
   optimizeDeps: { include: ['react', 'react-dom', 'react/jsx-runtime'] },
-  server: { port: Number(process.env.PORT) || 5173, strictPort: false, open: false },
+  // The multiplayer page talks to the game server (server/main.ts, port 8787) at /ws on
+  // its own origin, so in development and under `vite preview` that path is proxied
+  // through. A static host sets VITE_PLAY_SERVER at build time instead.
+  server: {
+    port: Number(process.env.PORT) || 5173, strictPort: false, open: false,
+    proxy: { '/ws': { target: `ws://localhost:${process.env.PLAY_PORT || 8787}`, ws: true } },
+  },
+  preview: {
+    proxy: { '/ws': { target: `ws://localhost:${process.env.PLAY_PORT || 8787}`, ws: true } },
+  },
   worker: { format: 'es' },
   build: {
     target: 'es2022',
@@ -24,6 +33,7 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         pet: resolve(__dirname, 'pet.html'),
         how: resolve(__dirname, 'how.html'),
+        play: resolve(__dirname, 'play.html'),
       },
       output: {
         // Both pages are three.js on first paint - the explorer IS the point cloud and

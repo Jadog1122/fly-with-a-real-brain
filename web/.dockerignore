@@ -1,0 +1,6 @@
+node_modules
+dist
+server/dist
+test-results
+playwright-report
+.DS_Store

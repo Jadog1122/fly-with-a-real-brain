@@ -6,6 +6,7 @@ Two pages on the same connectome:
 | --- | --- |
 | **`/` — Explorer** | Click a neuron in a 3-D point cloud of the whole brain and watch the spike it triggers cascade through the real FlyWire wiring, with a scrubbable spike raster. Plays **pre-baked** simulations. |
 | **`/pet.html` — The pet** | A fly walking around an arena with **45,808 of its neurons simulated live in your browser**. Drop sugar, bitter, a looming shadow, a smell or a vibration into its world and it reacts — because the spikes actually propagate through the connectome to its motor neurons. |
+| **`/play.html` — Lure the fly** | The same fly, **shared**: one brain stepped on a small game server, and everyone who opens the page in the same meadow, luring it to their sugar. Rounds of 90 seconds. Phones run no brain at all, only the scene. |
 
 The explorer is a player: simulations are baked offline, which is what makes it a
 one-evening project. The pet is not — its brain runs in a Web Worker at roughly real
@@ -50,6 +51,12 @@ Already baked? Just:
 
 ```bash
 cd web && npm install && npm run dev
+```
+
+The multiplayer page, `/play.html`, also needs the game server, in a second terminal:
+
+```bash
+cd web && npm run play
 ```
 
 ---
@@ -609,6 +616,109 @@ front, and a browser missing any of them gets a sentence naming what and why ins
 a blank page. `roundRect` has a fallback, so Safari before 16.4 loses the rounded corners
 on the clearing and nothing else.
 
+
+---
+
+## Lure the fly — everyone shares one fly
+
+`/play.html`. The pet page is one person and one fly, with the brain in their browser.
+This is the same fly for everyone: **one brain, stepped on a game server**, and every
+phone and laptop that opens the page looking at it from the same meadow.
+
+### The game
+
+Drop sugar where the fly will walk. If it eats yours, you score. That is the whole rule,
+and it is meant to be understood in the ten seconds people give a link. Two more tools
+make it a fight over one fly's attention rather than a queue: a **shadow** (the looming
+stimulus) makes it jump and fly away, and **bitter** next to a drop of sugar spoils it,
+because the bitter taste neurons suppress MN9 and the fly will not eat. Rounds last 90
+seconds, then a podium for 12, then the field is cleared and the next round starts.
+Nobody steers the fly. Everyone can see everyone else: a ring on the ground where each
+pointer is, with their name on it, and every token carries its owner's colour and name.
+
+The three tools were chosen from the pet's six by what the model does with them. Dust and
+a poke lock MN9 on for good, and a smell leaves DNa01 steering; those are real properties
+of this connectome (see *The mind, and the notebook*) and they would end a round with a
+fly stuck. Sugar, looming and bitter each reach a specific behaviour and let go. If the
+brain does get stuck anyway, the server notices it the way `mind.ts` does, puts every
+neuron back to rest, and says so in everyone's feed.
+
+Two things are ours, and the panel on screen says so: the wander drive that makes it
+explore (as in the pet), and the fly is **kept hungry** after a meal. A full fly stops
+foraging, and a round of nothing happening is not a game.
+
+### Why the brain moved to the server
+
+For the pet, a phone downloads the 8.9 MB subnetwork and steps 45,808 neurons at ten
+thousand timesteps a second, alongside the 3-D world. That is a lot to ask of someone who
+will give a link thirty seconds, and it cannot be shared: two browsers would be two
+brains. So the server runs the one brain and broadcasts the body - position, heading,
+altitude, what it is doing, and the seven descending-neuron rates - twenty times a
+second, about 600 bytes a message. The page interpolates the fly between messages, on the
+server's clock rather than on arrival time, rendering 110 ms behind so one late message
+is absorbed. Everything else it derives itself: leg phase from speed, wingbeat from
+flight, the same way `world.ts` does.
+
+The client is the pet's own `Scene3D`, fed from the socket instead of from a worker. The
+meadow, the fly's rig and clips, the dust it kicks up and the falling shadow are all the
+pet's. What is added is `presence3d.ts`: the rings and names.
+
+### The server
+
+`web/server/`. One Node process; each meadow is a `Room` (`game.ts`, the rules, with no
+socket or timer in it so they can be tested with a made-up brain) plus a brain on its
+own `worker_threads` thread (`brain-thread.ts`, which is `worker.ts` moved to Node) plus
+a 16 ms clock, exactly the split `engine.ts` makes in the browser. `main.ts` routes and
+validates messages and broadcasts at 20 Hz; it also serves the built site when `dist/`
+exists, so one container can host both. A meadow holds 16 people before a second one
+opens, each on its own core; measured, one brain is one core at real time.
+
+What a client sends is four messages - join, cursor, place, remove - and every one is
+validated in `src/play/protocol.ts`, which both ends import so the shapes cannot drift.
+Cooldowns and limits are the server's; the page only displays them. A name is printable,
+short and never empty; a socket gets forty messages a second and no more.
+
+```bash
+cd web && npm run play            # builds server/dist and listens on :8787
+```
+
+| Environment | Default | |
+| --- | --- | --- |
+| `PORT` | 8787 | |
+| `ROOM_CAP` | 16 | people per meadow before a second one opens |
+| `MAX_ROOMS` | 3 | meadows at most; give the host a core each |
+| `ROUND_MS` | 90000 | |
+| `ALLOWED_ORIGINS` | any | comma-separated browser origins; set it on a public deploy |
+| `DATA_DIR`, `STATIC_DIR` | `public/data`, `dist` | the brain, and the site to serve |
+
+**Deploying.** GitHub Pages hosts the pages but cannot host a socket, so the game server
+lives elsewhere: `web/Dockerfile` builds a container with the site inside it, and any
+host that runs one and passes WebSockets through will do (Fly.io, Railway, Render, a
+VPS). Then either point people at the container's own `/play.html`, or keep the pages on
+Pages and set the repository variable `PLAY_SERVER_URL` to the socket, e.g.
+`wss://fly-meadow.example.com/ws`; `pages.yml` bakes it in as `VITE_PLAY_SERVER`. A
+build without it says so at the door rather than failing silently. `?server=wss://...`
+on the page overrides both, for trying a server out.
+
+### How it is checked
+
+The rules have their own unit tests with a made-up brain (`test/play-game.test.ts`):
+seats, colours, the pouch and its cooldowns, tokens that expire, spoiling, scoring,
+the round clock holding while the meadow is empty, and a stuck brain being restarted.
+The interpolation is tested against a skewed clock and a late message. End to end
+(`e2e/play.spec.ts`, every push, three engines), two browser contexts join the same
+meadow through the real server, see each other's names, one drops sugar and the other
+sees the token wearing their name, and the fly moves for both.
+
+The interface was restyled with it - every page, since the palette is shared
+(`web/src/tokens.css`): ink glass in place of brown, one pale-honey accent, line icons
+(`web/src/icons.tsx`) in place of emoji, and the system's book serif for a title. Nothing
+is fetched from a font CDN.
+
+One bug came out of building it that the pet page had all along: the overview camera
+(**V**) was being pulled in to 340 units by the chase camera's occluder logic, showing a
+third of the arena instead of all of it. Fixed in `scene3d.ts` for both pages.
+
 ---
 
 ## The explorer
@@ -650,6 +760,9 @@ bake/
 web/
   index.html       the explorer
   pet.html         the pet
+  play.html        the meadow: one fly, everyone
+  server/          the game server (main.ts, game.ts, brain-thread.ts), for Node
+  Dockerfile       the server with the site inside it
   src/
     data.ts brain.ts player.ts raster.ts main.ts      explorer
     pet/ sim.ts     the LIF engine, verified against Brian2
@@ -657,6 +770,9 @@ web/
     pet/ sensors.ts stimuli -> Poisson drive, with laterality
     pet/ motor.ts   descending firing rates -> behaviour
     pet/ world.ts   the arena, and the fly's vector art
+    play/ protocol.ts  what the page and the server say to each other, validated
+    play/ net.ts    the socket, and interpolating the fly on the server's clock
+    play/ view.ts presence3d.ts App.tsx   the play page
   pet/ _headless.ts  re-exports the above for the offline tuning harness
 art/               build-time tools for the 3-D assets (not shipped)
   fly/build.sh     flybody's Drosophila -> web/public/models/fly

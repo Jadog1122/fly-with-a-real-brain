@@ -3,7 +3,7 @@ import ts from 'typescript-eslint'
 import hooks from 'eslint-plugin-react-hooks'
 
 export default ts.config(
-  { ignores: ['dist/**', 'node_modules/**', 'test/golden/**'] },
+  { ignores: ['dist/**', 'server/dist/**', 'node_modules/**', 'test/golden/**'] },
   js.configs.recommended,
   ...ts.configs.recommended,
   {

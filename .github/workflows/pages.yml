@@ -31,7 +31,13 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - run: npm ci
+      # The multiplayer page needs a game server, which Pages cannot host. Set the
+      # repository variable PLAY_SERVER_URL (Settings -> Secrets and variables ->
+      # Actions -> Variables) to its socket URL, e.g. wss://fly-meadow.example.com/ws,
+      # and the built page will connect there. Unset, the page says so at the door.
       - run: npm run build
+        env:
+          VITE_PLAY_SERVER: ${{ vars.PLAY_SERVER_URL }}
 
       # public/data is ~30 MB of baked connectome and is committed, so vite copies it
       # into dist and nothing has to be regenerated here

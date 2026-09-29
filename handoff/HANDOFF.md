@@ -315,3 +315,73 @@ found it.
 
 Verified: `npm run check` green (114 tests, 14 new), Chromium and Firefox e2e, and the
 scripted player in `scripts/notebook.mjs`.
+
+### 2026-09-28 — multiplayer session — the meadow: one fly, everyone
+
+The user asked for the game to become multiplayer: people open a page, see each other in
+the field, and it runs smoothly on phones, in short sessions anyone understands at once.
+
+**What went in: `/play.html`, "Lure the fly".** One fly with the real brain, stepped on a
+game server; everyone who opens the page shares it. Drop sugar where it will walk and
+score when it eats yours; a shadow makes it jump; bitter spoils sugar next to it. Rounds
+of 90 s, a podium, repeat. Presence: a ring on the ground at each pointer with the name
+on it, every token in its owner's colour and name, a feed of what happened. Phones run
+no brain: the client is `Scene3D` fed from the socket at 20 Hz, interpolated 110 ms
+behind on the server's clock.
+
+- `web/server/{main,game,brain-thread}.ts` + `build.mjs` (esbuild); `npm run play`.
+  `game.ts` is the rules with no socket in it; `brain-thread.ts` is `worker.ts` on
+  `worker_threads`. `tsconfig.server.json`, `npm run typecheck` covers it.
+- `web/src/play/{protocol,net,view,presence3d,App,main,play.css}`; `web/play.html`.
+- Tests: `test/play-game.test.ts` (20), `test/play-net.test.ts` (8), `e2e/play.spec.ts`
+  (two contexts through the real server). Playwright now starts the game server too.
+- CI builds the server; Pages bakes `vars.PLAY_SERVER_URL` in as `VITE_PLAY_SERVER`.
+  `web/Dockerfile` ships the server with the site inside it. README has the section.
+- `.claude/launch.json` has `fly-play-server`; vite dev and preview proxy `/ws` to :8787.
+
+**Changes in files you own, all small:**
+
+- `scene3d.ts` (world session): two lines in the camera. `setOverview` now sets
+  `camDist` to the new position's distance, and `avoidOccluders` skips the raycast
+  while in the overview. Before this, **V on the pet page showed the arena from 340
+  units, not 970**: `camDist` only ever eased outward from where the chase camera had
+  it, and `want` was read from the position it had itself constrained the frame before,
+  so it never grew. Worth knowing because it looked like a design choice.
+- `src/pet/App.tsx`: a "Play together" link in the title row. `index.html`/`style.css`:
+  a third corner link, `#to-play`. `eslint.config.js` ignores `server/dist`.
+  `vite.config.ts`: the `play` entry and the `/ws` proxy.
+
+**Things I did not do, on purpose:** no persistence (scores live for the round and the
+seat), no auth beyond a per-browser key that brings a reload back to its seat, no chat.
+Tools are three of the pet's six because Dust/poke lock MN9 and a smell locks DNa01; the
+server restarts a stuck brain the way `mind.ts` detects it, and says so.
+
+Verified: `npm run check` (144 tests), `vite build`, the Chromium e2e for the play page,
+and by hand in the browser at desktop, 375x812 and 812x375 with a scripted second player.
+
+### 2026-09-29 — multiplayer session — the look, redone
+
+The user found the interface's colour and overall look cheap. What changed, and it
+touches every page because the palette is shared:
+
+- **`src/tokens.css`** is a new palette: ink glass (neutral, slightly cool, `oklch(17% 0.01
+  245 / .64)`) in place of the warm brown glass, one pale-honey accent (`oklch(87% 0.11
+  86)`) instead of amber, softer good/warn/bad, 10 px buttons and 14 px panels instead of
+  pills and 18 px, a single custom shadow (`--ui-shadow`) in place of Open Props'
+  `--shadow-5`, and `--ui-display`, the system book serif (Iowan Old Style / Palatino /
+  Georgia) for a title or two. Nothing is loaded from a CDN.
+- **`src/pet/ui.css`** primitives follow the tokens (button radius, hover states, dock
+  radius). **`src/style.css`** (explorer), **`pet.css`** and **`mind.css`** had hard-coded
+  browns and amber glows (`#2f2415`, `rgba(26,18,10,.94)`, `rgba(226,186,118,…)`, …);
+  all retinted to the tokens. The explorer's corner links and the pet's dock, fab,
+  sound and pause buttons and avatar lost their emoji for line icons.
+- **`src/icons.tsx`** (shared): one icon per stimulus kind, the fly, sound, pulse,
+  sliders, close, play/pause, brain. `StimIcon` takes a sensors.ts id.
+- The play page (`src/play/{App.tsx,play.css}`) was re-laid out: round and state top
+  left, people top right, feed and hint bottom left, tools bottom centre; the brain is a
+  side sheet opened from the people card (or **B**). Tokens now carry their owner's
+  name and colour on the wire (`TokenView.name/colour`), so a token whose owner just
+  left still shows a name.
+
+Verified in the browser at desktop, 375x812 and 812x375 for the play page, and the pet
+page and explorer at desktop; `npm run check` green.

@@ -26,7 +26,7 @@
 .mind-book-scrim {
   position: fixed; inset: 0; z-index: 50;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(12, 8, 4, .45); opacity: 0; pointer-events: none;
+  background: oklch(10% 0.01 245 / .5); opacity: 0; pointer-events: none;
   transition: opacity .2s ease;
 }
 .mind-book-scrim.open { opacity: 1; pointer-events: auto; }
@@ -46,8 +46,8 @@
 .mind-book-foot .rpg-ui-btn { font-size: 11px; padding: 4px 10px; }
 
 .mind-card {
-  border: 1px solid rgba(226, 186, 118, .16); border-radius: 10px;
-  padding: 10px 12px; background: rgba(20, 14, 8, .25);
+  border: 1px solid var(--ui-hairline); border-radius: 10px;
+  padding: 10px 12px; background: oklch(100% 0 0 / .04);
 }
 .mind-card:not(.done):not(.current) { opacity: .68; }
 .mind-card.current { border-color: var(--ui-accent); }
@@ -56,7 +56,7 @@
 .mind-num {
   width: 20px; height: 20px; border-radius: 50%; flex: none;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700; border: 1px solid rgba(226, 186, 118, .35);
+  font-size: 11px; font-weight: 700; border: 1px solid oklch(87% 0.11 86 / .4);
 }
 .mind-card.done .mind-num { background: var(--ui-accent); color: var(--ui-bg); border-color: transparent; }
 .mind-at { font-size: 11px; opacity: .6; font-variant-numeric: tabular-nums; }
@@ -72,7 +72,7 @@
 .mind-path { list-style: none; margin: 9px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
 .mind-path li {
   font-size: 10.5px; padding: 2px 8px; border-radius: 999px;
-  background: rgba(226, 186, 118, .12);
+  background: var(--ui-accent-dim);
 }
 .mind-path li:not(:last-child)::after { content: '\2192'; margin-left: 6px; opacity: .55; }
 .mind-card .mind-note { font-style: italic; opacity: .8; }

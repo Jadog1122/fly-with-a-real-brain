@@ -41,10 +41,22 @@ export default defineConfig({
     // `npm run test:e2e:local` skips it; CI runs all three.
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
-  webServer: {
-    command: 'npx vite preview --port 4180 --strictPort',
-    url: 'http://localhost:4180/pet.html',
-    reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
-  },
+  webServer: [
+    {
+      command: 'npx vite preview --port 4180 --strictPort',
+      url: 'http://localhost:4180/pet.html',
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    // The game server the play page talks to; `vite preview` proxies /ws to it. It
+    // loads the real subnet and steps it, so it is the one server here that is not
+    // a file server.
+    {
+      command: 'node server/build.mjs && node server/dist/main.mjs',
+      url: 'http://localhost:8787/healthz',
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+      env: { PORT: '8787' },
+    },
+  ],
 })

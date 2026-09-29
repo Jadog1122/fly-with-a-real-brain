@@ -3,7 +3,6 @@
 // retints that library's tokens to the meadow's palette without rewriting its CSS.
 import { useEffect, useRef, useState } from 'react'
 // Only the token groups this UI uses, not the whole of Open Props
-import 'open-props/shadows'
 import 'open-props/easings'
 import 'open-props/borders'
 import './ui.css'
@@ -15,6 +14,7 @@ import { SettingsPanel } from './SettingsPanel'
 import { DEFAULTS, type Settings } from './save'
 import { Tracker, Notebook, DiscoveryToast } from './Notebook'
 import type { Discovery } from './mind'
+import { StimIcon, FlyIcon, SoundIcon, MuteIcon, PulseIcon, PauseIcon, PlayIcon, BrainIcon } from '../icons'
 
 const BAR_TYPE: Record<string, string> = {
   escape: 'health', proboscis: 'experience', groom: 'stamina',
@@ -179,7 +179,7 @@ export default function App() {
       {/* the fly's own status, top left */}
       <div className="rpg-ui-hud">
         <div className="rpg-ui-avatar">
-          <span role="img" aria-label="fly">🪰</span>
+          <FlyIcon />
           {!!snap?.fed && (
             <span className="rpg-ui-avatar-level" title="meals eaten">{snap.fed}</span>
           )}
@@ -212,7 +212,7 @@ export default function App() {
         <button className="rpg-ui-btn pet-orders-btn"
                 aria-expanded={showOrders}
                 onClick={() => setShowOrders(v => !v)}>
-          🧠 {firing.length ? `${firing.length} firing now` : "What the brain is doing"}
+          <PulseIcon /> {firing.length ? `${firing.length} firing now` : "What the brain is doing"}
         </button>
         <div className="pet-title-row">
           <select className="rpg-ui-btn" value={speed}
@@ -225,14 +225,14 @@ export default function App() {
                   onClick={async () => {
                     if (!sound) { await engine?.audio.enable(); setSound(true); engine?.setSound(true) }
                     else { engine?.audio.mute(true); setSound(false); engine?.setSound(false) }
-                  }}>{sound ? '🔊' : '🔇'}</button>
+                  }}>{sound ? <SoundIcon /> : <MuteIcon />}</button>
           <button className="rpg-ui-btn" title="Remove everything you have put down"
                   onClick={() => { engine?.clear(); engine?.saveNow() }}>Clear</button>
           <button className={`rpg-ui-btn${paused ? ' on' : ''}`}
                   title={paused ? 'Resume (P)' : 'Pause (P)'}
                   aria-pressed={paused}
                   onClick={() => setPaused(engine!.togglePause())}>
-            {paused ? '▶' : '❚❚'}
+            {paused ? <PlayIcon /> : <PauseIcon />}
           </button>
           <button className={`rpg-ui-btn${mindOn ? ' on' : ''}`}
                   title="Show what it senses and where its brain is steering it (M)"
@@ -243,6 +243,8 @@ export default function App() {
           <button className={`rpg-ui-btn${showSettings ? ' on' : ''}`} title="Settings"
                   aria-expanded={showSettings}
                   onClick={() => { setShowSettings(v => !v); setConfirmReset(false) }}>⚙</button>
+          {/* the same fly, shared: one brain on a server, everyone luring it */}
+          <a className="rpg-ui-btn" href="./play.html" title="Everyone shares one fly. Lure it to your sugar.">Play together</a>
           <a className="rpg-ui-btn" href="./index.html">Explorer</a>
           {/* the tutorial: what this thing is, told so a ten-year-old can follow it */}
           <a className="rpg-ui-btn" href="./how.html" title="What is actually deciding, and how">How?</a>
@@ -300,7 +302,7 @@ export default function App() {
             title={k.blurb}
             onClick={() => { setPicked(k.id); engine?.pick(k) }}
           >
-            <span className="pet-slot-emoji">{k.emoji}</span>
+            <span className="pet-slot-icon" style={{ '--stim': k.colour } as React.CSSProperties}><StimIcon id={k.id} /></span>
             <span className="pet-slot-name">{k.label}</span>
             {k.artifact && <span className="rpg-ui-dock-slot-qty">!</span>}
           </button>
@@ -364,7 +366,7 @@ export default function App() {
                 setBrainOpen(next)
                 if (next) engine?.showBrain(brainRef.current!)
                 else engine?.resizeBrain()
-              }}>🧠</button>
+              }}><BrainIcon /></button>
 
       <div className={`rpg-ui-glass-panel pet-brainpanel${brainOpen ? ' open' : ''}`}>
         <h2>Whole brain</h2>

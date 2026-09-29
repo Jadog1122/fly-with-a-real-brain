@@ -7,6 +7,12 @@
       "runtimeArgs": ["--prefix", "web", "run", "dev"],
       "port": 5173,
       "autoPort": true
+    },
+    {
+      "name": "fly-play-server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "web", "run", "play"],
+      "port": 8787
     }
   ]
 }

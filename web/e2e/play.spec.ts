@@ -25,8 +25,9 @@ async function hasWebgl2(page: Page): Promise<boolean> {
   })
 }
 
+/** Take a seat. The page must already be on /play.html?perf=1: navigating again cancels
+ *  the model loads still in flight, which WebKit reports as "access control" errors. */
 async function join(page: Page, name: string) {
-  await page.goto('/play.html?perf=1')
   await expect(page.locator('.play-title')).toHaveText('Lure the fly')
   await page.locator('.play-join input').fill(name)
   await page.locator('.play-go').click()
@@ -38,6 +39,8 @@ type Pet = { view: {
   me: { id: string } | null
   client: { place: (tool: string, x: number, y: number) => void }
   world: { fly: { x: number; y: number } }
+  latest: { fly: { x: number; y: number } } | null
+  round: { phase: string; left: number }
   tokens: { owner: string }[]
 } }
 
@@ -46,7 +49,7 @@ test('two people share the fly, and see each other in the meadow', async ({ brow
   // inside a budget CI's Chromium can meet (~70 s a page there, one after the other).
   test.setTimeout(480_000)
   const errors = collectErrors(page)
-  await page.goto('/play.html')
+  await page.goto('/play.html?perf=1')
 
   if (!(await hasWebgl2(page))) {
     const card = page.locator('.play-card')
@@ -61,6 +64,7 @@ test('two people share the fly, and see each other in the meadow', async ({ brow
   const ctx = await browser.newContext()
   const page2 = await ctx.newPage()
   const errors2 = collectErrors(page2)
+  await page2.goto('/play.html?perf=1')
   await Promise.all([join(page, 'Ada'), join(page2, 'Bo')])
 
   await expect(page.locator('.play-scores')).toContainText('Ada')
@@ -73,15 +77,24 @@ test('two people share the fly, and see each other in the meadow', async ({ brow
   // at least the two of us: a developer's own tab may be seated in the same meadow
   await expect(page.locator('.play-people h2')).toHaveText(/^([2-9]|\d{2,}) in the meadow$/)
 
-  // Bo drops sugar; Ada sees a token wearing Bo's name
+  // Bo drops sugar; Ada sees a token wearing Bo's name. Not between rounds, when the
+  // server rightly refuses it: booting two software-rendered pages can take long enough
+  // in CI to land in that 12 s window.
+  await expect.poll(() => page2.evaluate(() => {
+    const r = (window as unknown as { __pet: Pet }).__pet.view.round
+    return r.phase === 'play' && r.left > 20_000
+  }), { message: 'no round to place in', timeout: 40_000 }).toBe(true)
   await page2.evaluate(() => {
     (window as unknown as { __pet: Pet }).__pet.view.client.place('sugar', 380, 245)
   })
   await expect(page.locator('.play-label-token', { hasText: 'Bo' })).not.toHaveCount(0, { timeout: 20_000 })
 
-  // and the fly moves, for both, because the server is stepping it
+  // and the fly moves, for both, because the server is stepping it. Read the state the
+  // page received rather than the drawn position: a second software-rendered page in CI
+  // gets very few frames, and the question is whether the server's fly reaches it.
   const at = (p: Page) => p.evaluate(() => {
-    const f = (window as unknown as { __pet: Pet }).__pet.view.world.fly
+    const v = (window as unknown as { __pet: Pet }).__pet.view
+    const f = v.latest?.fly ?? v.world.fly
     return [f.x, f.y]
   })
   const a0 = await at(page)

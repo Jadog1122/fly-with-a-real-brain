@@ -57,6 +57,8 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
       env: { PORT: '8787' },
+      // its log says who took a seat when, which is what a failed meadow test needs
+      stdout: 'pipe',
     },
   ],
 })

@@ -19,6 +19,19 @@ function collectErrors(page: Page) {
   return errors
 }
 
+/**
+ * Two of these pages share CI's two cores and its software renderer, and at full quality
+ * a frame there takes seconds, which starves the main thread that has to read the
+ * socket. Low quality (no shadows, no post-processing, native resolution) and a smaller
+ * viewport keep the question about the meadow, not about SwiftShader.
+ */
+async function cheap(page: Page) {
+  await page.addInitScript(() => {
+    try { localStorage.setItem('fly-play-quality', 'low') } catch { /* private mode */ }
+  })
+  await page.setViewportSize({ width: 900, height: 640 })
+}
+
 async function hasWebgl2(page: Page): Promise<boolean> {
   return page.evaluate(() => {
     try { return !!document.createElement('canvas').getContext('webgl2') } catch { return false }
@@ -49,6 +62,7 @@ test('two people share the fly, and see each other in the meadow', async ({ brow
   // inside a budget CI's Chromium can meet (~70 s a page there, one after the other).
   test.setTimeout(480_000)
   const errors = collectErrors(page)
+  await cheap(page)
   await page.goto('/play.html?perf=1')
 
   if (!(await hasWebgl2(page))) {
@@ -64,6 +78,7 @@ test('two people share the fly, and see each other in the meadow', async ({ brow
   const ctx = await browser.newContext()
   const page2 = await ctx.newPage()
   const errors2 = collectErrors(page2)
+  await cheap(page2)
   await page2.goto('/play.html?perf=1')
   await Promise.all([join(page, 'Ada'), join(page2, 'Bo')])
 

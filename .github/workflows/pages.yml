@@ -42,7 +42,7 @@ jobs:
       # public/data is ~30 MB of baked connectome and is committed, so vite copies it
       # into dist and nothing has to be regenerated here
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: web/dist
 
